@@ -418,13 +418,21 @@ class RestaurantModel:
 
         # Add "Eat at Home" with weight if enabled and not excluded today
         eat_at_home_count = 0
-        if Config.EAT_AT_HOME_ENABLED and current_day not in Config.EAT_AT_HOME_EXCLUDED_DAYS:
-            # Check if "Eat at Home" should be excluded by recent spin
-            exclude_eat_at_home = False
-            if not Config.EAT_AT_HOME_IGNORE_RECENT_SPIN and excluded_id == "eat-at-home":
-                exclude_eat_at_home = True
+        eat_at_home_excluded = None
+        eat_at_home_excluded_reason = None
 
-            if not exclude_eat_at_home:
+        if Config.EAT_AT_HOME_ENABLED:
+            # Check if excluded by day
+            if current_day in Config.EAT_AT_HOME_EXCLUDED_DAYS:
+                eat_at_home_excluded = Config.EAT_AT_HOME_NAME
+                day_names = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+                eat_at_home_excluded_reason = f"Excluded on {day_names[current_day]}"
+            # Check if excluded by recent spin
+            elif not Config.EAT_AT_HOME_IGNORE_RECENT_SPIN and excluded_id == "eat-at-home":
+                eat_at_home_excluded = Config.EAT_AT_HOME_NAME
+                eat_at_home_excluded_reason = "Recent spin (within 15 min)"
+            else:
+                # Not excluded, add to pool
                 eat_at_home = {
                     "id": "eat-at-home",
                     "name": Config.EAT_AT_HOME_NAME,
@@ -452,7 +460,18 @@ class RestaurantModel:
             items.append({
                 "name": name,
                 "count": count,
-                "percentage": round(percentage, 1)
+                "percentage": round(percentage, 1),
+                "excluded": False
+            })
+
+        # Add excluded "Eat at Home" to items list if applicable
+        if eat_at_home_excluded:
+            items.insert(0, {
+                "name": eat_at_home_excluded,
+                "count": 0,
+                "percentage": 0,
+                "excluded": True,
+                "excluded_reason": eat_at_home_excluded_reason
             })
 
         return {
@@ -539,13 +558,14 @@ class RestaurantModel:
             "went": False
         }
 
-        # Add to history list
-        self.redis.lpush("spin_history", json.dumps(history_entry))
-
-        # Clean up old entries periodically (every 10th entry to avoid race conditions)
+        # Clean up old entries BEFORE adding new one (every 10th entry)
+        # This ensures the new entry is always present after this function returns
         history_length = self.redis.llen("spin_history")
-        if history_length % 10 == 0:
+        if history_length > 0 and (history_length + 1) % 10 == 0:
             self._cleanup_old_history()
+
+        # Add to history list AFTER cleanup
+        self.redis.lpush("spin_history", json.dumps(history_entry))
 
         return entry_id
 

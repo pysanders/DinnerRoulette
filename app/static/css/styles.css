@@ -411,6 +411,28 @@ section h2 {
     color: var(--primary-color);
 }
 
+.excluded-row {
+    opacity: 0.6;
+    background-color: #f8f9fa;
+}
+
+.excluded-row td {
+    text-decoration: line-through;
+    color: #6c757d;
+}
+
+.exclusion-reason {
+    color: #dc3545;
+    font-style: italic;
+    text-decoration: none;
+    display: block;
+    margin-top: 0.25rem;
+}
+
+.excluded-percentage {
+    color: #6c757d !important;
+}
+
 .stats-info {
     background: var(--bg-light);
     padding: 1rem;

@@ -5,7 +5,7 @@ const state = {
     categories: [],
     distances: [],
     selectedCategory: '',
-    selectedDistance: '',
+    selectedDistance: 'nearby',  // Default to nearby
     currentResult: null,
     currentEntryId: null,
     history: [],
@@ -883,10 +883,15 @@ function renderStats(stats) {
     html += '<tbody>';
 
     stats.items.forEach(item => {
-        html += '<tr>';
-        html += `<td>${item.name}</td>`;
+        const rowClass = item.excluded ? 'excluded-row' : '';
+        html += `<tr class="${rowClass}">`;
+        html += `<td>${item.name}`;
+        if (item.excluded && item.excluded_reason) {
+            html += `<br><small class="exclusion-reason">🚫 ${item.excluded_reason}</small>`;
+        }
+        html += `</td>`;
         html += `<td>${item.count}</td>`;
-        html += `<td class="stats-percentage">${item.percentage}%</td>`;
+        html += `<td class="stats-percentage ${item.excluded ? 'excluded-percentage' : ''}">${item.percentage}%</td>`;
         html += '</tr>';
     });
 
