@@ -52,6 +52,44 @@ header h1 {
     text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.2);
 }
 
+/* Cooldown Banner */
+.cooldown-banner {
+    background: linear-gradient(135deg, #ff6b6b 0%, #ee5a6f 100%);
+    color: white;
+    padding: 1.5rem;
+    margin: -1rem -1rem 2rem -1rem;
+    border-radius: 0;
+    box-shadow: 0 4px 12px rgba(255, 107, 107, 0.3);
+    animation: slideDown 0.3s ease-out;
+}
+
+.cooldown-banner.hidden {
+    display: none;
+}
+
+.cooldown-content {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    font-size: 1.125rem;
+}
+
+.cooldown-icon {
+    font-size: 2rem;
+}
+
+.cooldown-message {
+    font-weight: 500;
+}
+
+.cooldown-message strong {
+    font-weight: 700;
+    font-size: 1.25rem;
+    color: #fff;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
 .user-greeting {
     font-size: 1.1rem;
     opacity: 0.95;

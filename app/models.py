@@ -454,6 +454,46 @@ class RestaurantModel:
             }
         }
 
+    def can_user_spin(self, username):
+        """
+        Check if a user can spin based on rate limiting
+
+        Args:
+            username (str): Username to check
+
+        Returns:
+            tuple: (can_spin: bool, seconds_remaining: int)
+        """
+        last_spin_key = f"user:{username}:last_spin"
+        last_spin_time = self.redis.get(last_spin_key)
+
+        if not last_spin_time:
+            return True, 0
+
+        try:
+            last_spin_time = float(last_spin_time)
+            time_since_spin = datetime.utcnow().timestamp() - last_spin_time
+
+            if time_since_spin >= Config.SPIN_TIMEOUT_SECONDS:
+                return True, 0
+            else:
+                seconds_remaining = int(Config.SPIN_TIMEOUT_SECONDS - time_since_spin)
+                return False, seconds_remaining
+        except (ValueError, TypeError):
+            return True, 0
+
+    def record_user_spin(self, username):
+        """
+        Record that a user has just spun
+
+        Args:
+            username (str): Username who spun
+        """
+        last_spin_key = f"user:{username}:last_spin"
+        self.redis.set(last_spin_key, datetime.utcnow().timestamp())
+        # Set expiry to cleanup old data (2x timeout period)
+        self.redis.expire(last_spin_key, Config.SPIN_TIMEOUT_SECONDS * 2)
+
     def add_to_history(self, username, restaurant):
         """
         Add a spin to the history

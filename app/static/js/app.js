@@ -8,7 +8,9 @@ const state = {
     selectedDistance: '',
     currentResult: null,
     currentEntryId: null,
-    history: []
+    history: [],
+    cooldownTimer: null,
+    cooldownEndTime: null
 };
 
 // DOM Elements
@@ -98,6 +100,8 @@ function initializeElements() {
     elements.statsModal = document.getElementById('stats-modal');
     elements.closeStatsModal = document.getElementById('close-stats-modal');
     elements.statsContent = document.getElementById('stats-content');
+    elements.cooldownBanner = document.getElementById('cooldown-banner');
+    elements.cooldownTime = document.getElementById('cooldown-time');
 }
 
 // Setup event listeners
@@ -458,7 +462,12 @@ async function handleSpin() {
             showResult(data.restaurant);
             loadHistory(); // Reload history to show the new spin
         } else {
-            showToast(data.error || 'No restaurants available', 'error');
+            // Handle rate limiting (429) specially
+            if (response.status === 429 && data.seconds_remaining) {
+                showCooldownBanner(data.seconds_remaining);
+            } else {
+                showToast(data.error || 'No restaurants available', 'error');
+            }
         }
     } catch (error) {
         console.error('Error getting random restaurant:', error);
@@ -665,6 +674,71 @@ function createHistoryItem(entry) {
     item.appendChild(meta);
 
     return item;
+}
+
+// Show cooldown banner with countdown
+function showCooldownBanner(secondsRemaining) {
+    // Clear any existing timer
+    if (state.cooldownTimer) {
+        clearInterval(state.cooldownTimer);
+    }
+
+    // Set end time
+    state.cooldownEndTime = Date.now() + (secondsRemaining * 1000);
+
+    // Show banner
+    elements.cooldownBanner.classList.remove('hidden');
+
+    // Disable spin button
+    elements.spinButton.disabled = true;
+    elements.spinButton.style.opacity = '0.5';
+    elements.spinButton.style.cursor = 'not-allowed';
+
+    // Update countdown immediately
+    updateCooldownDisplay();
+
+    // Start countdown timer
+    state.cooldownTimer = setInterval(() => {
+        updateCooldownDisplay();
+    }, 1000);
+}
+
+// Update cooldown display
+function updateCooldownDisplay() {
+    const now = Date.now();
+    const remaining = Math.max(0, Math.floor((state.cooldownEndTime - now) / 1000));
+
+    if (remaining <= 0) {
+        hideCooldownBanner();
+        return;
+    }
+
+    const minutes = Math.floor(remaining / 60);
+    const seconds = remaining % 60;
+
+    let timeText;
+    if (minutes > 0) {
+        timeText = seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+    } else {
+        timeText = `${seconds}s`;
+    }
+
+    elements.cooldownTime.textContent = timeText;
+}
+
+// Hide cooldown banner
+function hideCooldownBanner() {
+    if (state.cooldownTimer) {
+        clearInterval(state.cooldownTimer);
+        state.cooldownTimer = null;
+    }
+
+    elements.cooldownBanner.classList.add('hidden');
+
+    // Re-enable spin button
+    elements.spinButton.disabled = false;
+    elements.spinButton.style.opacity = '1';
+    elements.spinButton.style.cursor = 'pointer';
 }
 
 // Format timestamp to relative time

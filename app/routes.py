@@ -213,11 +213,28 @@ def randomize():
     if not username:
         return jsonify(create_error_response("User not registered. Please register first.")), 401
 
+    # Check rate limiting
+    model = get_restaurant_model()
+    can_spin, seconds_remaining = model.can_user_spin(username)
+    if not can_spin:
+        minutes = seconds_remaining // 60
+        seconds = seconds_remaining % 60
+        if minutes > 0:
+            time_msg = f"{minutes}m {seconds}s" if seconds > 0 else f"{minutes}m"
+        else:
+            time_msg = f"{seconds}s"
+
+        response = {
+            "success": False,
+            "error": f"Please wait {time_msg} before spinning again",
+            "seconds_remaining": seconds_remaining
+        }
+        return jsonify(response), 429
+
     category = request.args.get('category', '').strip()
     distance = request.args.get('distance', '').strip()
 
     # Get random restaurant
-    model = get_restaurant_model()
     restaurant = model.get_random(
         category=category if category else None,
         distance=distance if distance else None
@@ -235,6 +252,9 @@ def randomize():
             f"No restaurants available{' with ' + filter_text if filter_text else ''}",
             404
         )), 404
+
+    # Record spin time for rate limiting
+    model.record_user_spin(username)
 
     # Save to history and get entry ID
     entry_id = model.add_to_history(username, restaurant)

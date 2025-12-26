@@ -41,3 +41,6 @@ class Config:
 
     # Backup configuration
     BACKUP_DIR = os.getenv('BACKUP_DIR', '/app/backups')
+
+    # Spin rate limiting (seconds between spins per user)
+    SPIN_TIMEOUT_SECONDS = int(os.getenv('SPIN_TIMEOUT_SECONDS', 300))  # 5 minutes default
