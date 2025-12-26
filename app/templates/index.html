@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <meta name="description" content="Dinner Roulette - Let fate decide where to eat!">
+    <meta name="theme-color" content="#4a90e2">
+    <title>Dinner Roulette</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <!-- Welcome Modal (first-time users) -->
+    <div id="welcome-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>Welcome to Dinner Roulette!</h2>
+            <p>Let's get started. What's your first name?</p>
+            <form id="user-registration">
+                <input
+                    type="text"
+                    id="first-name"
+                    placeholder="Enter your first name"
+                    required
+                    autocomplete="given-name"
+                    maxlength="50"
+                >
+                <button type="submit" class="btn btn-primary">Get Started</button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Main App Container -->
+    <div id="app" class="container">
+        <!-- Header -->
+        <header>
+            <h1>🎲 Dinner Roulette</h1>
+            <p class="user-greeting">Welcome, <span id="username">Guest</span>!</p>
+        </header>
+
+        <!-- Category Filter Section -->
+        <section id="filter-section">
+            <h2>Choose Category</h2>
+            <div class="category-buttons">
+                <button class="category-btn active" data-category="">All</button>
+                <button class="category-btn" data-category="quick">Quick</button>
+                <button class="category-btn" data-category="sit-down">Sit Down</button>
+                <button class="category-btn" data-category="nice">Nice</button>
+            </div>
+        </section>
+
+        <!-- Roulette Section -->
+        <section id="roulette-section">
+            <div id="result-display" class="result-card hidden">
+                <h2 id="restaurant-name"></h2>
+                <span class="category-badge" id="restaurant-category"></span>
+                <p class="added-by">Added by <span id="restaurant-added-by"></span></p>
+                <button id="going-btn" class="btn-going">
+                    ✓ We're Going!
+                </button>
+            </div>
+            <button id="spin-btn" class="spin-button">
+                🎰 SPIN THE WHEEL
+            </button>
+        </section>
+
+        <!-- Add Restaurant Section -->
+        <section id="add-section">
+            <h2>Add Restaurant</h2>
+            <form id="add-restaurant-form">
+                <input
+                    type="text"
+                    id="restaurant-name-input"
+                    placeholder="Restaurant name"
+                    required
+                    maxlength="100"
+                >
+                <select id="restaurant-category-input" required>
+                    <option value="">Select category...</option>
+                    <option value="quick">Quick</option>
+                    <option value="sit-down">Sit Down</option>
+                    <option value="nice">Nice</option>
+                </select>
+                <button type="submit" class="btn btn-primary">Add Restaurant</button>
+            </form>
+        </section>
+
+        <!-- Restaurant List Section -->
+        <section id="list-section">
+            <div class="section-header">
+                <h2>All Restaurants</h2>
+                <span id="restaurant-count" class="count-badge">0</span>
+            </div>
+            <div id="restaurants-list" class="restaurant-grid">
+                <p class="empty-message">No restaurants yet. Add one above!</p>
+            </div>
+        </section>
+
+        <!-- Spin History Section -->
+        <section id="history-section">
+            <h2>Recent Spins</h2>
+            <div id="history-list" class="history-list">
+                <p class="empty-message">No spins yet. Try the wheel above!</p>
+            </div>
+        </section>
+    </div>
+
+    <!-- Toast Notifications -->
+    <div id="toast" class="toast hidden"></div>
+
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
