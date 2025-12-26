@@ -311,20 +311,26 @@ class RestaurantModel:
             # Add to pool (weight of 1 for regular restaurants)
             pool.append(restaurant)
 
-        # Add "Eat at Home" option with weight if enabled
-        if Config.EAT_AT_HOME_ENABLED:
-            eat_at_home = {
-                "id": "eat-at-home",
-                "name": Config.EAT_AT_HOME_NAME,
-                "categories": ["home"],
-                "distance": "nearby",
-                "added_by": "System",
-                "is_eat_at_home": True,
-                "closed_days": []
-            }
-            # Add multiple times based on weight
-            for _ in range(Config.EAT_AT_HOME_WEIGHT):
-                pool.append(eat_at_home)
+        # Add "Eat at Home" option with weight if enabled and not excluded today
+        if Config.EAT_AT_HOME_ENABLED and current_day not in Config.EAT_AT_HOME_EXCLUDED_DAYS:
+            # Check if "Eat at Home" should be excluded by recent spin
+            exclude_eat_at_home = False
+            if not Config.EAT_AT_HOME_IGNORE_RECENT_SPIN and excluded_id == "eat-at-home":
+                exclude_eat_at_home = True
+
+            if not exclude_eat_at_home:
+                eat_at_home = {
+                    "id": "eat-at-home",
+                    "name": Config.EAT_AT_HOME_NAME,
+                    "categories": ["home"],
+                    "distance": "nearby",
+                    "added_by": "System",
+                    "is_eat_at_home": True,
+                    "closed_days": []
+                }
+                # Add multiple times based on weight
+                for _ in range(Config.EAT_AT_HOME_WEIGHT):
+                    pool.append(eat_at_home)
 
         # Return None if pool is empty
         if not pool:
@@ -375,6 +381,7 @@ class RestaurantModel:
 
         # Check for recent spin exclusion
         excluded_restaurant = None
+        excluded_id = None
         recent_history = self.get_history(limit=1)
         if recent_history:
             last_spin = recent_history[0]
@@ -409,21 +416,27 @@ class RestaurantModel:
 
             pool.append(restaurant)
 
-        # Add "Eat at Home" with weight
+        # Add "Eat at Home" with weight if enabled and not excluded today
         eat_at_home_count = 0
-        if Config.EAT_AT_HOME_ENABLED:
-            eat_at_home = {
-                "id": "eat-at-home",
-                "name": Config.EAT_AT_HOME_NAME,
-                "categories": ["home"],
-                "distance": "nearby",
-                "added_by": "System",
-                "is_eat_at_home": True,
-                "closed_days": []
-            }
-            for _ in range(Config.EAT_AT_HOME_WEIGHT):
-                pool.append(eat_at_home)
-            eat_at_home_count = Config.EAT_AT_HOME_WEIGHT
+        if Config.EAT_AT_HOME_ENABLED and current_day not in Config.EAT_AT_HOME_EXCLUDED_DAYS:
+            # Check if "Eat at Home" should be excluded by recent spin
+            exclude_eat_at_home = False
+            if not Config.EAT_AT_HOME_IGNORE_RECENT_SPIN and excluded_id == "eat-at-home":
+                exclude_eat_at_home = True
+
+            if not exclude_eat_at_home:
+                eat_at_home = {
+                    "id": "eat-at-home",
+                    "name": Config.EAT_AT_HOME_NAME,
+                    "categories": ["home"],
+                    "distance": "nearby",
+                    "added_by": "System",
+                    "is_eat_at_home": True,
+                    "closed_days": []
+                }
+                for _ in range(Config.EAT_AT_HOME_WEIGHT):
+                    pool.append(eat_at_home)
+                eat_at_home_count = Config.EAT_AT_HOME_WEIGHT
 
         # Calculate statistics
         total_items = len(pool)

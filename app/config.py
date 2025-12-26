@@ -35,6 +35,14 @@ class Config:
     EAT_AT_HOME_ENABLED = os.getenv('EAT_AT_HOME_ENABLED', 'True').lower() == 'true'
     EAT_AT_HOME_WEIGHT = int(os.getenv('EAT_AT_HOME_WEIGHT', 2))
     EAT_AT_HOME_NAME = os.getenv('EAT_AT_HOME_NAME', 'Eat at Home')
+    # Days to exclude "Eat at Home" (0=Sunday, 1=Monday, ..., 6=Saturday)
+    # Default: 5,6 (Friday, Saturday)
+    eat_at_home_excluded = os.getenv('EAT_AT_HOME_EXCLUDED_DAYS', '5,6')
+    EAT_AT_HOME_EXCLUDED_DAYS = [int(d.strip()) for d in eat_at_home_excluded.split(',') if d.strip().isdigit()]
+    # Whether "Eat at Home" ignores the 15-minute recent spin exclusion
+    # True = can appear immediately after being selected (default)
+    # False = follows same 15-minute exclusion as restaurants
+    EAT_AT_HOME_IGNORE_RECENT_SPIN = os.getenv('EAT_AT_HOME_IGNORE_RECENT_SPIN', 'True').lower() == 'true'
 
     # History retention
     HISTORY_RETENTION_DAYS = int(os.getenv('HISTORY_RETENTION_DAYS', 30))
