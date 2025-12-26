@@ -245,6 +245,26 @@ def randomize():
     }))
 
 
+@api.route('/randomize/stats', methods=['GET'])
+def randomize_stats():
+    """Get statistics about the current randomization pool"""
+    try:
+        category = request.args.get('category', '').strip()
+        distance = request.args.get('distance', '').strip()
+
+        model = get_restaurant_model()
+        stats = model.get_randomization_stats(
+            category=category if category else None,
+            distance=distance if distance else None
+        )
+
+        return jsonify(create_success_response(stats))
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify(create_error_response(f"Error generating stats: {str(e)}")), 500
+
+
 @api.route('/history', methods=['GET'])
 def get_history():
     """Get spin history (last 20 spins)"""

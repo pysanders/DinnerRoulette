@@ -94,6 +94,10 @@ function initializeElements() {
     elements.deleteRestaurantBtn = document.getElementById('delete-restaurant-btn');
     elements.newCategoryInput = document.getElementById('new-category-input');
     elements.addCategoryBtn = document.getElementById('add-category-btn');
+    elements.statsBtn = document.getElementById('stats-btn');
+    elements.statsModal = document.getElementById('stats-modal');
+    elements.closeStatsModal = document.getElementById('close-stats-modal');
+    elements.statsContent = document.getElementById('stats-content');
 }
 
 // Setup event listeners
@@ -123,6 +127,10 @@ function setupEventListeners() {
     elements.closeEditModal.addEventListener('click', closeEditModal);
     elements.editRestaurantForm.addEventListener('submit', handleEditRestaurant);
     elements.deleteRestaurantBtn.addEventListener('click', handleDeleteFromEdit);
+
+    // Stats modal
+    elements.statsBtn.addEventListener('click', openStatsModal);
+    elements.closeStatsModal.addEventListener('click', closeStatsModal);
 
     // Custom category
     elements.addCategoryBtn.addEventListener('click', handleAddCategory);
@@ -669,14 +677,8 @@ function formatTimeAgo(timestamp) {
     const then = new Date(timestampStr);
     const seconds = Math.floor((now - then) / 1000);
 
-    // Debug logging
-    console.log('Timestamp:', timestamp, '→', timestampStr);
-    console.log('Now:', now.toISOString(), 'Then:', then.toISOString());
-    console.log('Seconds ago:', seconds);
-
     // Handle invalid dates or future dates
     if (isNaN(then.getTime()) || seconds < 0) {
-        console.warn('Invalid or future date detected');
         return 'Just now';
     }
 
@@ -726,6 +728,97 @@ function openEditModal(restaurant) {
 function closeEditModal() {
     elements.editModal.classList.add('hidden');
     elements.editRestaurantForm.reset();
+}
+
+// Open stats modal
+async function openStatsModal() {
+    elements.statsModal.classList.remove('hidden');
+    elements.statsContent.innerHTML = '<p class="loading-message">Loading stats...</p>';
+
+    try {
+        // Build query params based on current filters
+        const params = new URLSearchParams();
+        if (state.selectedCategory) {
+            params.append('category', state.selectedCategory);
+        }
+        if (state.selectedDistance) {
+            params.append('distance', state.selectedDistance);
+        }
+
+        const response = await fetch(`/api/randomize/stats?${params}`);
+        const data = await response.json();
+
+        if (data.success) {
+            // Stats are merged directly into response, not nested under 'data'
+            renderStats(data);
+        } else {
+            console.error('Stats API error:', data);
+            elements.statsContent.innerHTML = '<p class="error-message">Failed to load stats</p>';
+        }
+    } catch (error) {
+        console.error('Error fetching stats:', error);
+        elements.statsContent.innerHTML = '<p class="error-message">Failed to load stats</p>';
+    }
+}
+
+// Close stats modal
+function closeStatsModal() {
+    elements.statsModal.classList.add('hidden');
+}
+
+// Render stats content
+function renderStats(stats) {
+    let html = '';
+
+    // Show current filters
+    if (stats.filters.category || stats.filters.distance) {
+        html += '<div class="stats-info">';
+        html += '<strong>Current Filters:</strong>';
+        if (stats.filters.category) {
+            html += `<p>Category: ${formatCategory(stats.filters.category)}</p>`;
+        }
+        if (stats.filters.distance) {
+            html += `<p>Distance: ${stats.filters.distance.charAt(0).toUpperCase() + stats.filters.distance.slice(1).replace('-', ' ')}</p>`;
+        }
+        html += '</div>';
+    }
+
+    // Show excluded restaurant
+    if (stats.excluded) {
+        html += '<div class="stats-excluded">';
+        html += `<strong>⏸️ Excluded:</strong> ${stats.excluded}<br>`;
+        html += `<small>${stats.excluded_reason}</small>`;
+        html += '</div>';
+    }
+
+    // Show closed restaurants
+    if (stats.closed_today && stats.closed_today.length > 0) {
+        html += '<div class="stats-closed">';
+        html += `<strong>🚫 Closed Today:</strong> ${stats.closed_today.join(', ')}`;
+        html += '</div>';
+    }
+
+    // Show pool info
+    html += '<div class="stats-info">';
+    html += `<strong>Total Pool Size:</strong> ${stats.total_pool_size} items`;
+    html += '</div>';
+
+    // Show items table
+    html += '<table class="stats-table">';
+    html += '<thead><tr><th>Restaurant</th><th>Count</th><th>Probability</th></tr></thead>';
+    html += '<tbody>';
+
+    stats.items.forEach(item => {
+        html += '<tr>';
+        html += `<td>${item.name}</td>`;
+        html += `<td>${item.count}</td>`;
+        html += `<td class="stats-percentage">${item.percentage}%</td>`;
+        html += '</tr>';
+    });
+
+    html += '</tbody></table>';
+
+    elements.statsContent.innerHTML = html;
 }
 
 // Handle edit restaurant form submission

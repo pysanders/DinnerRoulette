@@ -70,9 +70,14 @@
                     ✓ We're Going!
                 </button>
             </div>
-            <button id="spin-btn" class="spin-button">
-                🎰 SPIN THE WHEEL
-            </button>
+            <div class="spin-controls">
+                <button id="spin-btn" class="spin-button">
+                    🎰 SPIN THE WHEEL
+                </button>
+                <button id="stats-btn" class="btn-stats" title="View randomization stats">
+                    ℹ️
+                </button>
+            </div>
         </section>
 
         <!-- Restaurant List Section -->
@@ -256,6 +261,21 @@
                     <button type="submit" class="btn btn-primary">Add Restaurant</button>
                 </div>
             </form>
+        </div>
+    </div>
+
+    <!-- Randomization Stats Modal -->
+    <div id="stats-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Randomization Statistics</h2>
+                <button class="close-btn" id="close-stats-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="stats-content">
+                    <p class="loading-message">Loading stats...</p>
+                </div>
+            </div>
         </div>
     </div>
 

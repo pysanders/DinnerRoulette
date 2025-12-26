@@ -333,6 +333,127 @@ class RestaurantModel:
         # Pick random from weighted pool
         return random.choice(pool)
 
+    def get_randomization_stats(self, category=None, distance=None):
+        """
+        Get statistics about the current randomization pool without actually selecting.
+        Shows what items are in the pool and their probabilities.
+
+        Args:
+            category (str, optional): Filter by category
+            distance (str, optional): Filter by distance
+
+        Returns:
+            dict: Pool statistics including counts, percentages, and excluded items
+        """
+        import random
+
+        # Define distance hierarchy (in order from closest to farthest)
+        distance_hierarchy = ['nearby', 'short-drive', 'medium-drive', 'far']
+
+        # Get appropriate set based on filters (same logic as get_random)
+        if category and distance:
+            cat_ids = self.redis.smembers(f"restaurants:by_category:{category}")
+            allowed_distances = distance_hierarchy[:distance_hierarchy.index(distance) + 1]
+            dist_ids = set()
+            for dist in allowed_distances:
+                dist_ids.update(self.redis.smembers(f"restaurants:by_distance:{dist}"))
+            ids_list = list(cat_ids.intersection(dist_ids))
+        elif category:
+            ids_list = list(self.redis.smembers(f"restaurants:by_category:{category}"))
+        elif distance:
+            allowed_distances = distance_hierarchy[:distance_hierarchy.index(distance) + 1]
+            dist_ids = set()
+            for dist in allowed_distances:
+                dist_ids.update(self.redis.smembers(f"restaurants:by_distance:{dist}"))
+            ids_list = list(dist_ids)
+        else:
+            ids_list = list(self.redis.smembers("restaurants:index"))
+
+        # Get current day of week
+        current_day = datetime.utcnow().weekday()
+        current_day = (current_day + 1) % 7  # Convert to Sunday=0 format
+
+        # Check for recent spin exclusion
+        excluded_restaurant = None
+        recent_history = self.get_history(limit=1)
+        if recent_history:
+            last_spin = recent_history[0]
+            last_time = datetime.fromisoformat(last_spin.get('timestamp'))
+            time_diff = (datetime.utcnow() - last_time).total_seconds()
+            if time_diff < 900:  # 15 minutes
+                excluded_id = last_spin.get('restaurant_id')
+                if excluded_id and excluded_id != 'eat-at-home':
+                    excluded_restaurant = self.get(excluded_id)
+
+        # Build pool (same logic as get_random)
+        pool = []
+        closed_today = []
+
+        for restaurant_id in ids_list:
+            if isinstance(restaurant_id, bytes):
+                restaurant_id = restaurant_id.decode('utf-8')
+
+            restaurant = self.get(restaurant_id)
+            if not restaurant:
+                continue
+
+            # Check if excluded by recent spin
+            if excluded_restaurant and restaurant_id == excluded_restaurant.get('id'):
+                continue
+
+            # Check if closed today
+            closed_days = restaurant.get('closed_days', [])
+            if current_day in closed_days:
+                closed_today.append(restaurant.get('name'))
+                continue
+
+            pool.append(restaurant)
+
+        # Add "Eat at Home" with weight
+        eat_at_home_count = 0
+        if Config.EAT_AT_HOME_ENABLED:
+            eat_at_home = {
+                "id": "eat-at-home",
+                "name": Config.EAT_AT_HOME_NAME,
+                "categories": ["home"],
+                "distance": "nearby",
+                "added_by": "System",
+                "is_eat_at_home": True,
+                "closed_days": []
+            }
+            for _ in range(Config.EAT_AT_HOME_WEIGHT):
+                pool.append(eat_at_home)
+            eat_at_home_count = Config.EAT_AT_HOME_WEIGHT
+
+        # Calculate statistics
+        total_items = len(pool)
+        item_counts = {}
+        for item in pool:
+            name = item.get('name', 'Unknown')
+            item_counts[name] = item_counts.get(name, 0) + 1
+
+        # Build stats response
+        items = []
+        for name, count in sorted(item_counts.items()):
+            percentage = (count / total_items * 100) if total_items > 0 else 0
+            items.append({
+                "name": name,
+                "count": count,
+                "percentage": round(percentage, 1)
+            })
+
+        return {
+            "total_pool_size": total_items,
+            "items": items,
+            "excluded": excluded_restaurant.get('name') if excluded_restaurant else None,
+            "excluded_reason": "Recent spin (within 15 min)" if excluded_restaurant else None,
+            "closed_today": closed_today,
+            "filters": {
+                "category": category if category else None,
+                "distance": distance if distance else None
+            }
+        }
+
     def add_to_history(self, username, restaurant):
         """
         Add a spin to the history
