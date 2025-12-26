@@ -9,7 +9,7 @@ class Config:
 
     # Flask settings
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
-    FLASK_ENV = os.getenv('FLASK_ENV', 'development')
+    FLASK_ENV = os.getenv('FLASK_ENV', 'production')
 
     # Redis settings
     REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
@@ -38,3 +38,6 @@ class Config:
 
     # History retention
     HISTORY_RETENTION_DAYS = int(os.getenv('HISTORY_RETENTION_DAYS', 30))
+
+    # Backup configuration
+    BACKUP_DIR = os.getenv('BACKUP_DIR', '/app/backups')

@@ -218,8 +218,17 @@ async function loadCategories() {
 // Render category filter buttons
 function renderCategoryButtons() {
     const container = elements.categoryButtonsContainer;
-    container.innerHTML = '<button class="category-btn active" data-category="">All</button>';
+    container.innerHTML = '';
 
+    // Create "All" button
+    const allBtn = document.createElement('button');
+    allBtn.className = 'category-btn active';
+    allBtn.dataset.category = '';
+    allBtn.textContent = 'All';
+    allBtn.addEventListener('click', () => handleCategoryChange(''));
+    container.appendChild(allBtn);
+
+    // Create category buttons
     state.categories.forEach(category => {
         const btn = document.createElement('button');
         btn.className = 'category-btn';

@@ -368,8 +368,10 @@ class RestaurantModel:
         # Add to history list
         self.redis.lpush("spin_history", json.dumps(history_entry))
 
-        # Clean up old entries (older than retention period)
-        self._cleanup_old_history()
+        # Clean up old entries periodically (every 10th entry to avoid race conditions)
+        history_length = self.redis.llen("spin_history")
+        if history_length % 10 == 0:
+            self._cleanup_old_history()
 
         return entry_id
 
@@ -632,7 +634,7 @@ class RestaurantModel:
 
         # Create backup filename with timestamp
         timestamp = datetime.utcnow().strftime("%Y%m%d_%H%M%S")
-        backup_dir = "backups"
+        backup_dir = Config.BACKUP_DIR
         os.makedirs(backup_dir, exist_ok=True)
         backup_file = os.path.join(backup_dir, f"restaurants_backup_{timestamp}.json")
 
