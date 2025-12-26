@@ -36,14 +36,27 @@
             <p class="user-greeting">Welcome, <span id="username">Guest</span>!</p>
         </header>
 
-        <!-- Category Filter Section -->
+        <!-- Filter Section -->
         <section id="filter-section">
-            <h2>Choose Category</h2>
-            <div class="category-buttons">
-                <button class="category-btn active" data-category="">All</button>
-                <button class="category-btn" data-category="quick">Quick</button>
-                <button class="category-btn" data-category="sit-down">Sit Down</button>
-                <button class="category-btn" data-category="nice">Nice</button>
+            <h2>Filters</h2>
+
+            <div class="filter-group">
+                <h3>Category</h3>
+                <div id="category-buttons" class="category-buttons">
+                    <button class="category-btn active" data-category="">All</button>
+                    <!-- Dynamically populated -->
+                </div>
+            </div>
+
+            <div class="filter-group">
+                <h3>Distance</h3>
+                <div class="distance-buttons">
+                    <button class="distance-btn active" data-distance="">All</button>
+                    <button class="distance-btn" data-distance="nearby">Nearby</button>
+                    <button class="distance-btn" data-distance="short-drive">Short Drive</button>
+                    <button class="distance-btn" data-distance="medium-drive">Medium Drive</button>
+                    <button class="distance-btn" data-distance="far">Far</button>
+                </div>
             </div>
         </section>
 
@@ -62,32 +75,14 @@
             </button>
         </section>
 
-        <!-- Add Restaurant Section -->
-        <section id="add-section">
-            <h2>Add Restaurant</h2>
-            <form id="add-restaurant-form">
-                <input
-                    type="text"
-                    id="restaurant-name-input"
-                    placeholder="Restaurant name"
-                    required
-                    maxlength="100"
-                >
-                <select id="restaurant-category-input" required>
-                    <option value="">Select category...</option>
-                    <option value="quick">Quick</option>
-                    <option value="sit-down">Sit Down</option>
-                    <option value="nice">Nice</option>
-                </select>
-                <button type="submit" class="btn btn-primary">Add Restaurant</button>
-            </form>
-        </section>
-
         <!-- Restaurant List Section -->
         <section id="list-section">
             <div class="section-header">
                 <h2>All Restaurants</h2>
-                <span id="restaurant-count" class="count-badge">0</span>
+                <div class="section-header-actions">
+                    <span id="restaurant-count" class="count-badge">0</span>
+                    <button id="open-add-modal" class="btn btn-primary">+ Add Restaurant</button>
+                </div>
             </div>
             <div id="restaurants-list" class="restaurant-grid">
                 <p class="empty-message">No restaurants yet. Add one above!</p>
@@ -101,6 +96,167 @@
                 <p class="empty-message">No spins yet. Try the wheel above!</p>
             </div>
         </section>
+    </div>
+
+    <!-- Edit Restaurant Modal -->
+    <div id="edit-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Edit Restaurant</h2>
+                <button id="close-edit-modal" class="close-btn">&times;</button>
+            </div>
+            <form id="edit-restaurant-form">
+                <input type="hidden" id="edit-restaurant-id">
+
+                <div class="form-group">
+                    <label for="edit-restaurant-name">Name:</label>
+                    <input
+                        type="text"
+                        id="edit-restaurant-name"
+                        required
+                        maxlength="100"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label>Categories (select at least one):</label>
+                    <div id="edit-categories-checkboxes" class="category-checkboxes">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-restaurant-distance">Distance:</label>
+                    <select id="edit-restaurant-distance" required>
+                        <option value="nearby">Nearby</option>
+                        <option value="short-drive">Short Drive</option>
+                        <option value="medium-drive">Medium Drive</option>
+                        <option value="far">Far</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Closed on (optional):</label>
+                    <div id="edit-closed-days-checkboxes" class="day-checkboxes">
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="0" name="closed_days">
+                            <span>Sun</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="1" name="closed_days">
+                            <span>Mon</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="2" name="closed_days">
+                            <span>Tue</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="3" name="closed_days">
+                            <span>Wed</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="4" name="closed_days">
+                            <span>Thu</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="5" name="closed_days">
+                            <span>Fri</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="6" name="closed_days">
+                            <span>Sat</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <button type="button" id="delete-restaurant-btn" class="btn btn-danger">Remove Restaurant</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Add Restaurant Modal -->
+    <div id="add-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Add Restaurant</h2>
+                <button id="close-add-modal" class="close-btn">&times;</button>
+            </div>
+            <form id="add-restaurant-form">
+                <div class="form-group">
+                    <label for="restaurant-name-input">Name:</label>
+                    <input
+                        type="text"
+                        id="restaurant-name-input"
+                        placeholder="Restaurant name"
+                        required
+                        maxlength="100"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label>Categories (select at least one):</label>
+                    <div id="add-categories-checkboxes" class="category-checkboxes">
+                        <!-- Dynamically populated -->
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="restaurant-distance-input">Distance:</label>
+                    <select id="restaurant-distance-input" required>
+                        <option value="nearby">Nearby</option>
+                        <option value="short-drive">Short Drive</option>
+                        <option value="medium-drive">Medium Drive</option>
+                        <option value="far">Far</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Closed on (optional):</label>
+                    <div id="add-closed-days-checkboxes" class="day-checkboxes">
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="0" name="closed_days">
+                            <span>Sun</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="1" name="closed_days">
+                            <span>Mon</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="2" name="closed_days">
+                            <span>Tue</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="3" name="closed_days">
+                            <span>Wed</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="4" name="closed_days">
+                            <span>Thu</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="5" name="closed_days">
+                            <span>Fri</span>
+                        </label>
+                        <label class="checkbox-label">
+                            <input type="checkbox" value="6" name="closed_days">
+                            <span>Sat</span>
+                        </label>
+                    </div>
+                </div>
+
+                <div class="category-management">
+                    <input type="text" id="new-category-input" placeholder="Create new category" maxlength="30">
+                    <button type="button" id="add-category-btn" class="btn btn-secondary">+ Add Category</button>
+                </div>
+
+                <div class="modal-actions">
+                    <button type="submit" class="btn btn-primary">Add Restaurant</button>
+                </div>
+            </form>
+        </div>
     </div>
 
     <!-- Toast Notifications -->

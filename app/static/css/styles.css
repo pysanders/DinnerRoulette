@@ -87,6 +87,29 @@ section h2 {
     margin-bottom: 0;
 }
 
+.section-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-left: auto;
+}
+
+/* Filter Groups */
+.filter-group {
+    margin-bottom: 1.5rem;
+}
+
+.filter-group:last-child {
+    margin-bottom: 0;
+}
+
+.filter-group h3 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+    color: var(--text-dark);
+    font-weight: 600;
+}
+
 /* Category Buttons */
 .category-buttons {
     display: flex;
@@ -118,6 +141,129 @@ section h2 {
     background: var(--primary-color);
     color: white;
     border-color: var(--primary-color);
+}
+
+/* Distance Buttons */
+.distance-buttons {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.distance-btn {
+    flex: 1;
+    min-width: 100px;
+    padding: 0.75rem 1rem;
+    border: 2px solid var(--border-color);
+    background: var(--bg-white);
+    color: var(--text-dark);
+    border-radius: var(--radius);
+    font-size: 0.9rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    min-height: 44px;
+}
+
+.distance-btn:hover {
+    border-color: var(--secondary-color);
+    background: var(--bg-light);
+}
+
+.distance-btn.active {
+    background: var(--secondary-color);
+    color: white;
+    border-color: var(--secondary-color);
+}
+
+/* Form Groups */
+.form-group {
+    margin-bottom: 1rem;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 600;
+    color: var(--text-dark);
+}
+
+/* Category Checkboxes */
+.category-checkboxes {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    gap: 0.5rem;
+}
+
+.category-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem;
+    background: var(--bg-light);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.category-checkbox:hover {
+    background: #e9ecef;
+}
+
+.category-checkbox input[type="checkbox"] {
+    width: 20px;
+    height: 20px;
+    cursor: pointer;
+}
+
+.category-checkbox label {
+    margin: 0;
+    cursor: pointer;
+    flex: 1;
+    font-weight: normal;
+}
+
+/* Day Checkboxes (for closed days) */
+.day-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.day-checkboxes .checkbox-label {
+    flex: 0 0 auto;
+    padding: 0.5rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    user-select: none;
+}
+
+.day-checkboxes .checkbox-label:hover {
+    background: var(--bg-gray);
+}
+
+.day-checkboxes input[type="checkbox"] {
+    margin-right: 0.25rem;
+}
+
+.day-checkboxes .checkbox-label input:checked ~ span {
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+/* Category Management */
+.category-management {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    gap: 0.5rem;
+}
+
+.category-management input {
+    flex: 1;
 }
 
 /* Spin Button */
@@ -290,6 +436,15 @@ select:focus {
     background: #c0392b;
 }
 
+.btn-secondary {
+    background: var(--text-light);
+    color: white;
+}
+
+.btn-secondary:hover {
+    background: #6c757d;
+}
+
 /* Restaurant Grid */
 .restaurant-grid {
     display: grid;
@@ -338,6 +493,25 @@ select:focus {
 .category-badge.quick { background: var(--warning-color); }
 .category-badge.sit-down { background: var(--primary-color); }
 .category-badge.nice { background: var(--secondary-color); }
+.category-badge.home {
+    background: #28a745;
+    font-weight: 600;
+}
+.category-badge.home::before {
+    content: "🏠 ";
+}
+
+.distance-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: var(--radius);
+    background: #6c757d;
+    color: white;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: capitalize;
+    margin-right: 0.5rem;
+}
 
 .restaurant-meta {
     font-size: 0.875rem;
@@ -373,12 +547,13 @@ select:focus {
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.5);
+    background: rgba(0, 0, 0, 0.6);
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: center;
     z-index: 1000;
-    padding: var(--spacing);
+    padding: 2rem var(--spacing);
+    overflow-y: auto;
 }
 
 .modal.hidden {
@@ -387,22 +562,69 @@ select:focus {
 
 .modal-content {
     background: var(--bg-white);
-    padding: 2rem;
+    padding: 0;
     border-radius: var(--radius-lg);
-    max-width: 400px;
+    max-width: 500px;
     width: 100%;
     box-shadow: var(--shadow-lg);
     animation: fadeIn 0.3s ease-out;
+    max-height: calc(100vh - 4rem);
+    overflow-y: auto;
+    margin: auto 0;
 }
 
-.modal-content h2 {
-    margin-bottom: 1rem;
+.modal-header {
+    padding: 1.5rem 2rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
     color: var(--text-dark);
+}
+
+.close-btn {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    color: var(--text-light);
+    cursor: pointer;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s ease;
+}
+
+.close-btn:hover {
+    color: var(--text-dark);
+}
+
+.modal-content form {
+    padding: 2rem;
 }
 
 .modal-content p {
     margin-bottom: 1.5rem;
     color: var(--text-light);
+    padding: 0 2rem;
+}
+
+.modal-actions {
+    display: flex;
+    gap: 1rem;
+    margin-top: 1.5rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.modal-actions button {
+    flex: 1;
 }
 
 @keyframes fadeIn {

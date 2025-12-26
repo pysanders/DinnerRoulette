@@ -2,7 +2,10 @@
 const state = {
     user: null,
     restaurants: [],
+    categories: [],
+    distances: [],
     selectedCategory: '',
+    selectedDistance: '',
     currentResult: null,
     currentEntryId: null,
     history: []
@@ -14,7 +17,8 @@ const elements = {
     userRegistrationForm: null,
     firstNameInput: null,
     usernameDisplay: null,
-    categoryButtons: null,
+    categoryButtonsContainer: null,
+    distanceButtons: null,
     spinButton: null,
     resultDisplay: null,
     restaurantName: null,
@@ -22,10 +26,28 @@ const elements = {
     restaurantAddedBy: null,
     addRestaurantForm: null,
     restaurantNameInput: null,
-    restaurantCategoryInput: null,
+    addCategoriesCheckboxes: null,
+    restaurantDistanceInput: null,
+    addClosedDaysCheckboxes: null,
     restaurantsList: null,
     restaurantCount: null,
-    toast: null
+    historyList: null,
+    toast: null,
+    goingButton: null,
+    openAddModalBtn: null,
+    addModal: null,
+    closeAddModal: null,
+    editModal: null,
+    editRestaurantForm: null,
+    editRestaurantId: null,
+    editRestaurantName: null,
+    editCategoriesCheckboxes: null,
+    editRestaurantDistance: null,
+    editClosedDaysCheckboxes: null,
+    closeEditModal: null,
+    deleteRestaurantBtn: null,
+    newCategoryInput: null,
+    addCategoryBtn: null
 };
 
 // Initialize app on page load
@@ -41,7 +63,8 @@ function initializeElements() {
     elements.userRegistrationForm = document.getElementById('user-registration');
     elements.firstNameInput = document.getElementById('first-name');
     elements.usernameDisplay = document.getElementById('username');
-    elements.categoryButtons = document.querySelectorAll('.category-btn');
+    elements.categoryButtonsContainer = document.getElementById('category-buttons');
+    elements.distanceButtons = document.querySelectorAll('.distance-btn');
     elements.spinButton = document.getElementById('spin-btn');
     elements.goingButton = document.getElementById('going-btn');
     elements.resultDisplay = document.getElementById('result-display');
@@ -50,11 +73,27 @@ function initializeElements() {
     elements.restaurantAddedBy = document.getElementById('restaurant-added-by');
     elements.addRestaurantForm = document.getElementById('add-restaurant-form');
     elements.restaurantNameInput = document.getElementById('restaurant-name-input');
-    elements.restaurantCategoryInput = document.getElementById('restaurant-category-input');
+    elements.addCategoriesCheckboxes = document.getElementById('add-categories-checkboxes');
+    elements.restaurantDistanceInput = document.getElementById('restaurant-distance-input');
+    elements.addClosedDaysCheckboxes = document.getElementById('add-closed-days-checkboxes');
     elements.restaurantsList = document.getElementById('restaurants-list');
     elements.restaurantCount = document.getElementById('restaurant-count');
     elements.historyList = document.getElementById('history-list');
     elements.toast = document.getElementById('toast');
+    elements.openAddModalBtn = document.getElementById('open-add-modal');
+    elements.addModal = document.getElementById('add-modal');
+    elements.closeAddModal = document.getElementById('close-add-modal');
+    elements.editModal = document.getElementById('edit-modal');
+    elements.editRestaurantForm = document.getElementById('edit-restaurant-form');
+    elements.editRestaurantId = document.getElementById('edit-restaurant-id');
+    elements.editRestaurantName = document.getElementById('edit-restaurant-name');
+    elements.editCategoriesCheckboxes = document.getElementById('edit-categories-checkboxes');
+    elements.editRestaurantDistance = document.getElementById('edit-restaurant-distance');
+    elements.editClosedDaysCheckboxes = document.getElementById('edit-closed-days-checkboxes');
+    elements.closeEditModal = document.getElementById('close-edit-modal');
+    elements.deleteRestaurantBtn = document.getElementById('delete-restaurant-btn');
+    elements.newCategoryInput = document.getElementById('new-category-input');
+    elements.addCategoryBtn = document.getElementById('add-category-btn');
 }
 
 // Setup event listeners
@@ -62,9 +101,9 @@ function setupEventListeners() {
     // User registration
     elements.userRegistrationForm.addEventListener('submit', handleUserRegistration);
 
-    // Category filter buttons
-    elements.categoryButtons.forEach(btn => {
-        btn.addEventListener('click', () => handleCategoryChange(btn.dataset.category));
+    // Distance filter buttons
+    elements.distanceButtons.forEach(btn => {
+        btn.addEventListener('click', () => handleDistanceChange(btn.dataset.distance));
     });
 
     // Spin button
@@ -75,6 +114,18 @@ function setupEventListeners() {
 
     // Add restaurant form
     elements.addRestaurantForm.addEventListener('submit', handleAddRestaurant);
+
+    // Add modal
+    elements.openAddModalBtn.addEventListener('click', openAddModal);
+    elements.closeAddModal.addEventListener('click', closeAddModal);
+
+    // Edit modal
+    elements.closeEditModal.addEventListener('click', closeEditModal);
+    elements.editRestaurantForm.addEventListener('submit', handleEditRestaurant);
+    elements.deleteRestaurantBtn.addEventListener('click', handleDeleteFromEdit);
+
+    // Custom category
+    elements.addCategoryBtn.addEventListener('click', handleAddCategory);
 }
 
 // Check if user has a cookie
@@ -86,10 +137,12 @@ async function checkUser() {
         if (data.exists && data.user) {
             state.user = data.user;
             elements.usernameDisplay.textContent = data.user;
+            await loadCategories();
             loadRestaurants();
             loadHistory();
         } else {
             showWelcomeModal();
+            await loadCategories(); // Load categories even for new users
         }
     } catch (error) {
         console.error('Error checking user:', error);
@@ -146,13 +199,89 @@ async function handleUserRegistration(e) {
     }
 }
 
+// Load categories from API
+async function loadCategories() {
+    try {
+        const response = await fetch('/api/categories');
+        const data = await response.json();
+
+        if (data.success) {
+            state.categories = data.categories;
+            renderCategoryButtons();
+            renderCategoryCheckboxes();
+        }
+    } catch (error) {
+        console.error('Error loading categories:', error);
+    }
+}
+
+// Render category filter buttons
+function renderCategoryButtons() {
+    const container = elements.categoryButtonsContainer;
+    container.innerHTML = '<button class="category-btn active" data-category="">All</button>';
+
+    state.categories.forEach(category => {
+        const btn = document.createElement('button');
+        btn.className = 'category-btn';
+        btn.dataset.category = category;
+        btn.textContent = formatCategory(category);
+        btn.addEventListener('click', () => handleCategoryChange(category));
+        container.appendChild(btn);
+    });
+}
+
+// Render category checkboxes for add form
+function renderCategoryCheckboxes() {
+    renderCheckboxesInContainer(elements.addCategoriesCheckboxes, state.categories);
+    renderCheckboxesInContainer(elements.editCategoriesCheckboxes, state.categories);
+}
+
+// Helper to render checkboxes in a container
+function renderCheckboxesInContainer(container, categories) {
+    container.innerHTML = '';
+    categories.forEach(category => {
+        const label = document.createElement('label');
+        label.className = 'checkbox-label';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.value = category;
+        checkbox.name = 'categories';
+
+        const span = document.createElement('span');
+        span.textContent = formatCategory(category);
+
+        label.appendChild(checkbox);
+        label.appendChild(span);
+        container.appendChild(label);
+    });
+}
+
 // Handle category change
 function handleCategoryChange(category) {
     state.selectedCategory = category;
 
     // Update button states
-    elements.categoryButtons.forEach(btn => {
+    const buttons = elements.categoryButtonsContainer.querySelectorAll('.category-btn');
+    buttons.forEach(btn => {
         if (btn.dataset.category === category) {
+            btn.classList.add('active');
+        } else {
+            btn.classList.remove('active');
+        }
+    });
+
+    // Reload restaurants with filter
+    loadRestaurants();
+}
+
+// Handle distance change
+function handleDistanceChange(distance) {
+    state.selectedDistance = distance;
+
+    // Update button states
+    elements.distanceButtons.forEach(btn => {
+        if (btn.dataset.distance === distance) {
             btn.classList.add('active');
         } else {
             btn.classList.remove('active');
@@ -166,8 +295,16 @@ function handleCategoryChange(category) {
 // Load restaurants from API
 async function loadRestaurants() {
     try {
-        const url = state.selectedCategory
-            ? `/api/restaurants?category=${state.selectedCategory}`
+        const params = new URLSearchParams();
+        if (state.selectedCategory) {
+            params.append('category', state.selectedCategory);
+        }
+        if (state.selectedDistance) {
+            params.append('distance', state.selectedDistance);
+        }
+
+        const url = params.toString()
+            ? `/api/restaurants?${params.toString()}`
             : '/api/restaurants';
 
         const response = await fetch(url);
@@ -212,6 +349,8 @@ function renderRestaurants() {
 function createRestaurantCard(restaurant) {
     const card = document.createElement('div');
     card.className = 'restaurant-card';
+    card.onclick = () => openEditModal(restaurant);
+    card.style.cursor = 'pointer';
 
     const info = document.createElement('div');
     info.className = 'restaurant-info';
@@ -222,35 +361,52 @@ function createRestaurantCard(restaurant) {
     const meta = document.createElement('div');
     meta.className = 'restaurant-meta';
 
-    const badge = document.createElement('span');
-    badge.className = `category-badge ${restaurant.category}`;
-    badge.textContent = formatCategory(restaurant.category);
+    // Show all categories
+    const categories = Array.isArray(restaurant.categories) ? restaurant.categories : [restaurant.category || 'quick'];
+    categories.forEach(category => {
+        const badge = document.createElement('span');
+        badge.className = `category-badge ${category}`;
+        badge.textContent = formatCategory(category);
+        meta.appendChild(badge);
+    });
+
+    // Show distance
+    const distanceBadge = document.createElement('span');
+    distanceBadge.className = 'distance-badge';
+    distanceBadge.textContent = formatDistance(restaurant.distance || 'nearby');
+    meta.appendChild(distanceBadge);
 
     const addedBy = document.createElement('span');
     addedBy.textContent = `Added by ${restaurant.added_by}`;
-
-    meta.appendChild(badge);
     meta.appendChild(addedBy);
 
     info.appendChild(name);
     info.appendChild(meta);
 
-    // Delete button
-    const deleteBtn = document.createElement('button');
-    deleteBtn.className = 'btn btn-danger';
-    deleteBtn.textContent = 'Remove';
-    deleteBtn.onclick = () => handleDeleteRestaurant(restaurant.id, restaurant.name);
-
     card.appendChild(info);
-    card.appendChild(deleteBtn);
 
     return card;
 }
 
 // Format category for display
 function formatCategory(category) {
+    // Handle null/undefined
+    if (!category) return 'Unknown';
+
     if (category === 'sit-down') return 'Sit Down';
+    if (category === 'home') return 'Eat at Home';
     return category.charAt(0).toUpperCase() + category.slice(1);
+}
+
+// Format distance for display
+function formatDistance(distance) {
+    const map = {
+        'nearby': 'Nearby',
+        'short-drive': 'Short Drive',
+        'medium-drive': 'Medium Drive',
+        'far': 'Far'
+    };
+    return map[distance] || distance;
 }
 
 // Handle spin button
@@ -264,8 +420,16 @@ async function handleSpin() {
     elements.spinButton.classList.add('spinning');
 
     try {
-        const url = state.selectedCategory
-            ? `/api/randomize?category=${state.selectedCategory}`
+        const params = new URLSearchParams();
+        if (state.selectedCategory) {
+            params.append('category', state.selectedCategory);
+        }
+        if (state.selectedDistance) {
+            params.append('distance', state.selectedDistance);
+        }
+
+        const url = params.toString()
+            ? `/api/randomize?${params.toString()}`
             : '/api/randomize';
 
         const response = await fetch(url);
@@ -293,8 +457,13 @@ async function handleSpin() {
 // Show result
 function showResult(restaurant) {
     elements.restaurantName.textContent = restaurant.name;
-    elements.restaurantCategory.textContent = formatCategory(restaurant.category);
-    elements.restaurantCategory.className = `category-badge ${restaurant.category}`;
+
+    // Show first category (or fallback)
+    const categories = Array.isArray(restaurant.categories) ? restaurant.categories : [restaurant.category || 'quick'];
+    const firstCategory = categories[0];
+    elements.restaurantCategory.textContent = formatCategory(firstCategory);
+    elements.restaurantCategory.className = `category-badge ${firstCategory}`;
+
     elements.restaurantAddedBy.textContent = restaurant.added_by;
     elements.resultDisplay.classList.remove('hidden');
 
@@ -339,10 +508,23 @@ async function handleAddRestaurant(e) {
     e.preventDefault();
 
     const name = elements.restaurantNameInput.value.trim();
-    const category = elements.restaurantCategoryInput.value;
+    const distance = elements.restaurantDistanceInput.value;
 
-    if (!name || !category) {
-        showToast('Please fill in all fields', 'error');
+    // Get selected categories from checkboxes
+    const categoryCheckboxes = elements.addCategoriesCheckboxes.querySelectorAll('input[type="checkbox"]:checked');
+    const categories = Array.from(categoryCheckboxes).map(cb => cb.value);
+
+    // Get selected closed days from checkboxes
+    const closedDaysCheckboxes = elements.addClosedDaysCheckboxes.querySelectorAll('input[type="checkbox"]:checked');
+    const closedDays = Array.from(closedDaysCheckboxes).map(cb => parseInt(cb.value));
+
+    if (!name) {
+        showToast('Please enter a restaurant name', 'error');
+        return;
+    }
+
+    if (categories.length === 0) {
+        showToast('Please select at least one category', 'error');
         return;
     }
 
@@ -352,7 +534,12 @@ async function handleAddRestaurant(e) {
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ name, category })
+            body: JSON.stringify({
+                name,
+                categories,
+                distance,
+                closed_days: closedDays
+            })
         });
 
         const data = await response.json();
@@ -360,6 +547,7 @@ async function handleAddRestaurant(e) {
         if (data.success) {
             showToast(data.message || 'Restaurant added!', 'success');
             elements.addRestaurantForm.reset();
+            closeAddModal();
             loadRestaurants();
         } else {
             showToast(data.error || 'Failed to add restaurant', 'error');
@@ -367,36 +555,6 @@ async function handleAddRestaurant(e) {
     } catch (error) {
         console.error('Error adding restaurant:', error);
         showToast('Failed to add restaurant', 'error');
-    }
-}
-
-// Handle delete restaurant
-async function handleDeleteRestaurant(id, name) {
-    if (!confirm(`Remove "${name}" from the list?`)) {
-        return;
-    }
-
-    try {
-        const response = await fetch(`/api/restaurants/${id}`, {
-            method: 'DELETE'
-        });
-
-        const data = await response.json();
-
-        if (data.success) {
-            showToast(data.message || 'Restaurant removed', 'success');
-            loadRestaurants();
-
-            // Hide result if it was the deleted restaurant
-            if (state.currentResult && state.currentResult.id === id) {
-                elements.resultDisplay.classList.add('hidden');
-            }
-        } else {
-            showToast(data.error || 'Failed to remove restaurant', 'error');
-        }
-    } catch (error) {
-        console.error('Error deleting restaurant:', error);
-        showToast('Failed to remove restaurant', 'error');
     }
 }
 
@@ -494,9 +652,24 @@ function createHistoryItem(entry) {
 
 // Format timestamp to relative time
 function formatTimeAgo(timestamp) {
+    if (!timestamp) return 'Unknown';
+
     const now = new Date();
-    const then = new Date(timestamp);
+    // Ensure the timestamp is parsed correctly (add 'Z' if not present to indicate UTC)
+    const timestampStr = timestamp.endsWith('Z') ? timestamp : timestamp + 'Z';
+    const then = new Date(timestampStr);
     const seconds = Math.floor((now - then) / 1000);
+
+    // Debug logging
+    console.log('Timestamp:', timestamp, '→', timestampStr);
+    console.log('Now:', now.toISOString(), 'Then:', then.toISOString());
+    console.log('Seconds ago:', seconds);
+
+    // Handle invalid dates or future dates
+    if (isNaN(then.getTime()) || seconds < 0) {
+        console.warn('Invalid or future date detected');
+        return 'Just now';
+    }
 
     if (seconds < 60) return 'Just now';
     if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
@@ -504,4 +677,177 @@ function formatTimeAgo(timestamp) {
     if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
 
     return then.toLocaleDateString();
+}
+
+// Open add modal
+function openAddModal() {
+    elements.addModal.classList.remove('hidden');
+}
+
+// Close add modal
+function closeAddModal() {
+    elements.addModal.classList.add('hidden');
+    elements.addRestaurantForm.reset();
+}
+
+// Open edit modal with restaurant data
+function openEditModal(restaurant) {
+    elements.editRestaurantId.value = restaurant.id;
+    elements.editRestaurantName.value = restaurant.name;
+    elements.editRestaurantDistance.value = restaurant.distance || 'nearby';
+
+    // Check the appropriate category checkboxes
+    const categories = Array.isArray(restaurant.categories) ? restaurant.categories : [restaurant.category || 'quick'];
+    const categoryCheckboxes = elements.editCategoriesCheckboxes.querySelectorAll('input[type="checkbox"]');
+    categoryCheckboxes.forEach(cb => {
+        cb.checked = categories.includes(cb.value);
+    });
+
+    // Check the appropriate closed days checkboxes
+    const closedDays = restaurant.closed_days || [];
+    const closedDaysCheckboxes = elements.editClosedDaysCheckboxes.querySelectorAll('input[type="checkbox"]');
+    closedDaysCheckboxes.forEach(cb => {
+        cb.checked = closedDays.includes(parseInt(cb.value));
+    });
+
+    elements.editModal.classList.remove('hidden');
+}
+
+// Close edit modal
+function closeEditModal() {
+    elements.editModal.classList.add('hidden');
+    elements.editRestaurantForm.reset();
+}
+
+// Handle edit restaurant form submission
+async function handleEditRestaurant(e) {
+    e.preventDefault();
+
+    const id = elements.editRestaurantId.value;
+    const name = elements.editRestaurantName.value.trim();
+    const distance = elements.editRestaurantDistance.value;
+
+    // Get selected categories
+    const categoryCheckboxes = elements.editCategoriesCheckboxes.querySelectorAll('input[type="checkbox"]:checked');
+    const categories = Array.from(categoryCheckboxes).map(cb => cb.value);
+
+    // Get selected closed days
+    const closedDaysCheckboxes = elements.editClosedDaysCheckboxes.querySelectorAll('input[type="checkbox"]:checked');
+    const closedDays = Array.from(closedDaysCheckboxes).map(cb => parseInt(cb.value));
+
+    if (!name) {
+        showToast('Please enter a restaurant name', 'error');
+        return;
+    }
+
+    if (categories.length === 0) {
+        showToast('Please select at least one category', 'error');
+        return;
+    }
+
+    try {
+        const payload = {
+            name,
+            categories,
+            distance,
+            closed_days: closedDays
+        };
+
+        console.log('Updating restaurant with payload:', payload);
+
+        const response = await fetch(`/api/restaurants/${id}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
+        });
+
+        const data = await response.json();
+        console.log('Update response:', data);
+
+        if (data.success) {
+            showToast(data.message || 'Restaurant updated!', 'success');
+            closeEditModal();
+            loadRestaurants();
+        } else {
+            showToast(data.error || 'Failed to update restaurant', 'error');
+            console.error('Update failed:', data.error);
+        }
+    } catch (error) {
+        console.error('Error updating restaurant:', error);
+        showToast('Failed to update restaurant', 'error');
+    }
+}
+
+// Handle delete from edit modal
+async function handleDeleteFromEdit() {
+    const id = elements.editRestaurantId.value;
+    const name = elements.editRestaurantName.value;
+
+    if (!confirm(`Remove "${name}" from the list?`)) {
+        return;
+    }
+
+    try {
+        const response = await fetch(`/api/restaurants/${id}`, {
+            method: 'DELETE'
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(data.message || 'Restaurant removed', 'success');
+            closeEditModal();
+            loadRestaurants();
+
+            // Hide result if it was the deleted restaurant
+            if (state.currentResult && state.currentResult.id === id) {
+                elements.resultDisplay.classList.add('hidden');
+            }
+        } else {
+            showToast(data.error || 'Failed to remove restaurant', 'error');
+        }
+    } catch (error) {
+        console.error('Error deleting restaurant:', error);
+        showToast('Failed to remove restaurant', 'error');
+    }
+}
+
+// Handle add custom category
+async function handleAddCategory() {
+    const name = elements.newCategoryInput.value.trim().toLowerCase();
+
+    if (!name) {
+        showToast('Please enter a category name', 'error');
+        return;
+    }
+
+    if (name.length < 2 || name.length > 30) {
+        showToast('Category name must be between 2 and 30 characters', 'error');
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/categories', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ name })
+        });
+
+        const data = await response.json();
+
+        if (data.success) {
+            showToast(data.message || 'Category added!', 'success');
+            elements.newCategoryInput.value = '';
+            await loadCategories(); // Reload categories to show new one
+        } else {
+            showToast(data.error || 'Failed to add category', 'error');
+        }
+    } catch (error) {
+        console.error('Error adding category:', error);
+        showToast('Failed to add category', 'error');
+    }
 }
