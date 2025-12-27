@@ -1,7 +1,10 @@
 """Google Places API integration service"""
+import logging
 import requests
 import math
 from typing import Dict, List, Optional
+
+logger = logging.getLogger(__name__)
 
 
 class GooglePlacesService:
@@ -67,7 +70,7 @@ class GooglePlacesService:
             data = response.json()
 
             if data.get('status') != 'OK':
-                print(f"Google Places API error: {data.get('status')} - {data.get('error_message', '')}")
+                logger.error(f"Google Places API error: {data.get('status')} - {data.get('error_message', '')}")
                 return []
 
             results = []
@@ -109,7 +112,7 @@ class GooglePlacesService:
             return results[:max_results]
 
         except requests.RequestException as e:
-            print(f"Error searching Google Places: {e}")
+            logger.error(f"Error searching Google Places: {e}")
             return []
 
     def get_place_details(self, place_id: str) -> Optional[Dict]:
@@ -139,7 +142,7 @@ class GooglePlacesService:
             data = response.json()
 
             if data.get('status') != 'OK':
-                print(f"Google Places Details API error: {data.get('status')}")
+                logger.error(f"Google Places Details API error: {data.get('status')}")
                 return None
 
             result = data.get('result', {})
@@ -186,7 +189,7 @@ class GooglePlacesService:
             return place_details
 
         except requests.RequestException as e:
-            print(f"Error fetching place details: {e}")
+            logger.error(f"Error fetching place details: {e}")
             return None
 
     def get_driving_distance_and_time(self, dest_lat: float, dest_lng: float) -> Optional[Dict]:
@@ -216,7 +219,7 @@ class GooglePlacesService:
             data = response.json()
 
             if data.get('status') != 'OK':
-                print(f"Distance Matrix API error: {data.get('status')}")
+                logger.error(f"Distance Matrix API error: {data.get('status')}")
                 return None
 
             rows = data.get('rows', [])
@@ -229,7 +232,7 @@ class GooglePlacesService:
 
             element = elements[0]
             if element.get('status') != 'OK':
-                print(f"Distance Matrix element error: {element.get('status')}")
+                logger.error(f"Distance Matrix element error: {element.get('status')}")
                 return None
 
             # Extract distance (in meters) and duration (in seconds)
@@ -248,7 +251,7 @@ class GooglePlacesService:
             }
 
         except requests.RequestException as e:
-            print(f"Error fetching driving distance: {e}")
+            logger.error(f"Error fetching driving distance: {e}")
             return None
 
     def calculate_distance(self, lat1: float, lng1: float, lat2: float, lng2: float) -> float:

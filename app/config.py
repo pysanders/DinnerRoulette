@@ -10,6 +10,7 @@ class Config:
     # Flask settings
     SECRET_KEY = os.getenv('SECRET_KEY', 'dev-secret-key-change-in-production')
     FLASK_ENV = os.getenv('FLASK_ENV', 'production')
+    LOG_LEVEL = os.getenv('LOG_LEVEL', 'INFO')
 
     # Redis settings
     REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')

@@ -1,3 +1,4 @@
+import logging
 from flask import Blueprint, request, jsonify, make_response
 from app.models import RestaurantModel
 from app.utils import (
@@ -11,6 +12,7 @@ from app.utils import (
 )
 
 api = Blueprint('api', __name__, url_prefix='/api')
+logger = logging.getLogger(__name__)
 
 
 def get_restaurant_model():
@@ -272,16 +274,26 @@ def randomize():
             filters.append(f"distance '{distance}'")
         filter_text = " and ".join(filters) if filters else ""
 
+        logger.warning(f"No restaurants available for user {username} (filters: {filter_text})")
         return jsonify(create_error_response(
             f"No restaurants available{' with ' + filter_text if filter_text else ''}",
             404
         )), 404
+
+    # Log the spin details
+    restaurant_name = restaurant.get('name', 'Unknown')
+    restaurant_id = restaurant.get('id', 'Unknown')
+    logger.info(f"SPIN: User '{username}' spun and got restaurant '{restaurant_name}' (ID: {restaurant_id})")
 
     # Record spin time for rate limiting
     model.record_user_spin(username)
 
     # Save to history and get entry ID
     entry_id = model.add_to_history(username, restaurant)
+    logger.info(f"HISTORY: Added entry {entry_id} for user '{username}' - restaurant '{restaurant_name}' (ID: {restaurant_id})")
+
+    # Log what we're returning to the frontend
+    logger.debug(f"RESPONSE: Returning restaurant '{restaurant_name}' (ID: {restaurant_id}) to user '{username}'")
 
     return jsonify(create_success_response({
         "restaurant": restaurant,
@@ -304,8 +316,7 @@ def randomize_stats():
 
         return jsonify(create_success_response(stats))
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        logger.exception(f"Error generating stats: {str(e)}")
         return jsonify(create_error_response(f"Error generating stats: {str(e)}")), 500
 
 

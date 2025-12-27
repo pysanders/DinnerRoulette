@@ -1,6 +1,9 @@
 from datetime import datetime
+import logging
 import redis
 from app.config import Config
+
+logger = logging.getLogger(__name__)
 
 
 class RestaurantModel:
@@ -83,7 +86,7 @@ class RestaurantModel:
         try:
             self.backup_to_file()
         except Exception as e:
-            print(f"Backup failed: {e}")
+            logger.error(f"Backup failed after create: {e}")
 
         return self._format_restaurant(restaurant_data)
 
@@ -248,7 +251,7 @@ class RestaurantModel:
         try:
             self.backup_to_file()
         except Exception as e:
-            print(f"Backup failed: {e}")
+            logger.error(f"Backup failed after delete: {e}")
 
         return True
 
@@ -362,10 +365,14 @@ class RestaurantModel:
 
         # Return None if pool is empty
         if not pool:
+            logger.warning("get_random: Pool is empty, no restaurants available")
             return None
 
         # Pick random from weighted pool
-        return random.choice(pool)
+        logger.debug(f"get_random: Pool has {len(pool)} items (category={category}, distance={distance})")
+        selected = random.choice(pool)
+        logger.info(f"RANDOM_SELECT: Selected '{selected.get('name')}' (ID: {selected.get('id')}) from pool of {len(pool)} items")
+        return selected
 
     def get_randomization_stats(self, category=None, distance=None):
         """
@@ -586,6 +593,10 @@ class RestaurantModel:
             "went": False
         }
 
+        # Log what we're about to store
+        logger.info(f"HISTORY_STORE: Storing entry for user='{username}', restaurant='{restaurant.get('name')}' (ID: {restaurant.get('id')}), entry_id={entry_id}")
+        logger.debug(f"HISTORY_STORE: Full entry data: {history_entry}")
+
         # Clean up old entries BEFORE adding new one (every 10th entry)
         # This ensures the new entry is always present after this function returns
         history_length = self.redis.llen("spin_history")
@@ -594,6 +605,7 @@ class RestaurantModel:
 
         # Add to history list AFTER cleanup
         self.redis.lpush("spin_history", json.dumps(history_entry))
+        logger.debug(f"HISTORY_STORE: Successfully pushed entry {entry_id} to Redis")
 
         return entry_id
 
@@ -848,7 +860,7 @@ class RestaurantModel:
         try:
             self.backup_to_file()
         except Exception as e:
-            print(f"Backup failed: {e}")
+            logger.error(f"Backup failed after update: {e}")
 
         return self.get(restaurant_id)
 
@@ -957,7 +969,7 @@ class RestaurantModel:
                     restaurants_restored += 1
 
                 except Exception as e:
-                    print(f"Error restoring restaurant {restaurant_data.get('id')}: {e}")
+                    logger.error(f"Error restoring restaurant {restaurant_data.get('id')}: {e}")
                     continue
 
         return {
