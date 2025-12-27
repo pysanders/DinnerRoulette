@@ -510,9 +510,9 @@ function createRestaurantCard(restaurant) {
     distanceBadge.textContent = formatDistance(restaurant.distance || 'nearby');
     meta.appendChild(distanceBadge);
 
-    const addedBy = document.createElement('span');
-    addedBy.textContent = `Added by ${restaurant.added_by}`;
-    meta.appendChild(addedBy);
+    // const addedBy = document.createElement('span');
+    // addedBy.textContent = `Added by ${restaurant.added_by}`;
+    // meta.appendChild(addedBy);
 
     info.appendChild(nameContainer);
     info.appendChild(meta);
