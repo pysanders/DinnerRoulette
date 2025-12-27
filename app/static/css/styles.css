@@ -509,8 +509,38 @@ section h2 {
 }
 
 .result-card .added-by {
-    opacity: 0.9;
-    font-size: 0.95rem;
+    display: none;
+}
+
+.result-card .restaurant-contact {
+    margin: 1rem 0;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    align-items: center;
+}
+
+.result-card .contact-link {
+    color: white;
+    text-decoration: none;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius);
+    transition: background 0.2s ease;
+}
+
+.result-card .contact-link:hover {
+    background: rgba(255, 255, 255, 0.25);
+}
+
+.result-card .restaurant-address {
+    color: rgba(255, 255, 255, 0.9);
+    font-size: 0.9rem;
+    font-style: italic;
+    width: 100%;
+    text-align: center;
 }
 
 .btn-going {
@@ -651,6 +681,35 @@ select:focus {
     color: var(--text-dark);
 }
 
+.restaurant-name-container {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.restaurant-name-container h3 {
+    margin: 0;
+}
+
+.google-search-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    text-decoration: none;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+    opacity: 0.7;
+    flex-shrink: 0;
+}
+
+.google-search-icon:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+.google-search-icon svg {
+    display: block;
+}
+
 .category-badge {
     display: inline-block;
     padding: 0.25rem 0.625rem;
@@ -663,9 +722,10 @@ select:focus {
     margin-right: 0.5rem;
 }
 
-.category-badge.quick { background: var(--warning-color); }
+.category-badge.takeout { background: var(--warning-color); }
 .category-badge.sit-down { background: var(--primary-color); }
 .category-badge.nice { background: var(--secondary-color); }
+.category-badge.fast-food { background: #ff6b6b; }
 .category-badge.home {
     background: #28a745;
     font-weight: 600;
@@ -979,6 +1039,188 @@ select:focus {
     #add-restaurant-form button {
         flex: 0 0 auto;
     }
+}
+
+/* Google Places Autocomplete */
+.autocomplete-container {
+    position: relative;
+    margin-bottom: 1rem;
+}
+
+.autocomplete-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: white;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    max-height: 300px;
+    overflow-y: auto;
+    box-shadow: var(--shadow-lg);
+    z-index: 1000;
+    margin-top: 4px;
+}
+
+.autocomplete-results.hidden {
+    display: none;
+}
+
+.autocomplete-item {
+    padding: 0.75rem;
+    cursor: pointer;
+    border-bottom: 1px solid #f0f0f0;
+    transition: background 0.2s ease;
+}
+
+.autocomplete-item:hover {
+    background: var(--bg-light);
+}
+
+.autocomplete-item:last-child {
+    border-bottom: none;
+}
+
+.place-name {
+    font-weight: 600;
+    margin-bottom: 0.25rem;
+    color: var(--text-dark);
+}
+
+.place-address {
+    font-size: 0.875rem;
+    color: var(--text-light);
+    margin-bottom: 0.25rem;
+}
+
+.place-distance {
+    font-size: 0.75rem;
+    color: var(--secondary-color);
+    font-weight: 600;
+}
+
+.no-results {
+    padding: 1rem;
+    text-align: center;
+    color: var(--text-light);
+    font-size: 0.875rem;
+}
+
+/* Selected Place Info */
+.selected-place-info {
+    background: #e7f5ff;
+    border: 1px solid #74c0fc;
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.selected-place-info h4 {
+    margin-bottom: 0.75rem;
+    color: var(--text-dark);
+    font-size: 1rem;
+}
+
+.selected-place-info p {
+    margin: 0.5rem 0;
+    font-size: 0.875rem;
+}
+
+.selected-place-info strong {
+    display: inline-block;
+    min-width: 80px;
+    color: var(--text-dark);
+}
+
+.selected-place-info a {
+    color: var(--primary-color);
+    text-decoration: none;
+    word-break: break-all;
+}
+
+.selected-place-info a:hover {
+    text-decoration: underline;
+}
+
+#clear-selection-btn {
+    background: var(--danger-color);
+    color: white;
+    border: none;
+    padding: 0.5rem 1rem;
+    border-radius: var(--radius);
+    cursor: pointer;
+    margin-top: 0.75rem;
+    font-size: 0.875rem;
+    transition: background 0.2s ease;
+}
+
+#clear-selection-btn:hover {
+    background: #c0392b;
+}
+
+/* Google Places Info in Edit Modal */
+.place-info {
+    background: #f8f9fa;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius);
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+
+.place-info h4 {
+    margin-bottom: 0.75rem;
+    color: var(--text-dark);
+    font-size: 1rem;
+}
+
+.place-info p {
+    margin: 0.5rem 0;
+    font-size: 0.875rem;
+}
+
+.place-info strong {
+    display: inline-block;
+    min-width: 80px;
+    color: var(--text-dark);
+}
+
+.place-info a {
+    color: var(--primary-color);
+    text-decoration: none;
+}
+
+.place-info a:hover {
+    text-decoration: underline;
+}
+
+/* Contact Info in Restaurant Cards */
+.restaurant-contact {
+    margin-top: 0.5rem;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    align-items: center;
+}
+
+.contact-link {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    color: var(--primary-color);
+    text-decoration: none;
+    font-size: 0.875rem;
+    transition: color 0.2s ease;
+}
+
+.contact-link:hover {
+    color: var(--primary-dark);
+    text-decoration: underline;
+}
+
+.restaurant-address {
+    font-size: 0.875rem;
+    color: var(--text-light);
+    font-style: italic;
 }
 
 /* Reduced Motion Support */

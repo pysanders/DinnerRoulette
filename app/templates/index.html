@@ -71,8 +71,7 @@
         <section id="roulette-section">
             <div id="result-display" class="result-card hidden">
                 <h2 id="restaurant-name"></h2>
-                <span class="category-badge" id="restaurant-category"></span>
-                <p class="added-by">Added by <span id="restaurant-added-by"></span></p>
+                <div id="result-contact-info" class="restaurant-contact"></div>
                 <button id="going-btn" class="btn-going">
                     ✓ We're Going!
                 </button>
@@ -181,6 +180,38 @@
                     </div>
                 </div>
 
+                <!-- Google Places Search (for updating) -->
+                <div class="form-group autocomplete-container hidden" id="edit-places-search-group">
+                    <label for="edit-restaurant-search-input">Update from Google Places:</label>
+                    <input
+                        type="text"
+                        id="edit-restaurant-search-input"
+                        placeholder="Search to update Google Places data..."
+                        maxlength="100"
+                        autocomplete="off"
+                    >
+                    <div id="edit-places-autocomplete-results" class="autocomplete-results hidden">
+                        <!-- Results populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Google Places Information (read-only or updated) -->
+                <div id="edit-place-info" class="place-info hidden">
+                    <h4>Google Places Information</h4>
+                    <p><strong>Phone:</strong> <a id="edit-phone-link" href="#"></a></p>
+                    <p><strong>Address:</strong> <span id="edit-address"></span></p>
+                    <p><strong>Website:</strong> <a id="edit-website-link" href="#" target="_blank" rel="noopener noreferrer"></a></p>
+                    <p><strong>Distance:</strong> <span id="edit-google-distance"></span> (<span id="edit-eta"></span> drive)</p>
+                </div>
+
+                <!-- Hidden fields for Google Places data in edit mode -->
+                <input type="hidden" id="edit-place-id-input">
+                <input type="hidden" id="edit-phone-input">
+                <input type="hidden" id="edit-address-input">
+                <input type="hidden" id="edit-website-input">
+                <input type="hidden" id="edit-google-distance-input">
+                <input type="hidden" id="edit-eta-input">
+
                 <div class="modal-actions">
                     <button type="submit" class="btn btn-primary">Save Changes</button>
                     <button type="button" id="delete-restaurant-btn" class="btn btn-danger">Remove Restaurant</button>
@@ -197,6 +228,39 @@
                 <button id="close-add-modal" class="close-btn">&times;</button>
             </div>
             <form id="add-restaurant-form">
+                <!-- Google Places Search (shown only when enabled) -->
+                <div class="form-group autocomplete-container hidden" id="places-search-group">
+                    <label for="restaurant-search-input">Search for restaurant:</label>
+                    <input
+                        type="text"
+                        id="restaurant-search-input"
+                        placeholder="Start typing to search Google Places..."
+                        maxlength="100"
+                        autocomplete="off"
+                    >
+                    <div id="places-autocomplete-results" class="autocomplete-results hidden">
+                        <!-- Results populated dynamically -->
+                    </div>
+                </div>
+
+                <!-- Selected Place Info (shown when place is selected) -->
+                <div id="selected-place-info" class="selected-place-info hidden">
+                    <h4>Selected Place Details</h4>
+                    <p><strong>Address:</strong> <span id="selected-address"></span></p>
+                    <p><strong>Phone:</strong> <span id="selected-phone"></span></p>
+                    <p><strong>Website:</strong> <a id="selected-website" href="#" target="_blank" rel="noopener noreferrer"></a></p>
+                    <p><strong>Distance:</strong> <span id="selected-distance"></span> (<span id="selected-eta"></span> drive)</p>
+                    <button type="button" id="clear-selection-btn" class="btn btn-secondary">× Clear and enter manually</button>
+                </div>
+
+                <!-- Hidden fields for Google Places data -->
+                <input type="hidden" id="place-id-input">
+                <input type="hidden" id="phone-input">
+                <input type="hidden" id="address-input">
+                <input type="hidden" id="website-input">
+                <input type="hidden" id="google-distance-input">
+                <input type="hidden" id="eta-input">
+
                 <div class="form-group">
                     <label for="restaurant-name-input">Name:</label>
                     <input

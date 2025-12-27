@@ -25,7 +25,7 @@ class Config:
     COOKIE_SAMESITE = os.getenv('COOKIE_SAMESITE', 'Lax')
 
     # Restaurant categories (default set, can be customized via Redis)
-    DEFAULT_CATEGORIES = os.getenv('DEFAULT_CATEGORIES', 'quick,sit-down,nice').split(',')
+    DEFAULT_CATEGORIES = os.getenv('DEFAULT_CATEGORIES', 'takeout,sit-down,nice,fast-food').split(',')
 
     # Distance levels
     VALID_DISTANCES = os.getenv('VALID_DISTANCES', 'nearby,short-drive,medium-drive,far').split(',')
@@ -52,3 +52,12 @@ class Config:
 
     # Spin rate limiting (seconds between spins per user)
     SPIN_TIMEOUT_SECONDS = int(os.getenv('SPIN_TIMEOUT_SECONDS', 300))  # 5 minutes default
+
+    # Location settings for Google search
+    ZIP_CODE = os.getenv('ZIP_CODE', '00000')
+
+    # Google Places API settings
+    GOOGLE_PLACES_ENABLED = os.getenv('GOOGLE_PLACES_ENABLED', 'False').lower() == 'true'
+    GOOGLE_PLACES_API_KEY = os.getenv('GOOGLE_PLACES_API_KEY', '')
+    GOOGLE_PLACES_LOCATION = os.getenv('GOOGLE_PLACES_LOCATION', '')  # Lat,Lng for search center
+    GOOGLE_PLACES_RADIUS = int(os.getenv('GOOGLE_PLACES_RADIUS', '50000'))  # meters (default: 50km)

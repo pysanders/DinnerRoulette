@@ -103,6 +103,14 @@ def add_restaurant():
     distance = data.get('distance', 'nearby').strip()
     closed_days = data.get('closed_days', [])
 
+    # NEW: Extract Google Places data
+    place_id = data.get('place_id', '')
+    phone = data.get('phone', '')
+    address = data.get('address', '')
+    website = data.get('website', '')
+    google_distance = data.get('google_distance', '')
+    eta = data.get('eta', '')
+
     # Validate name
     is_valid, error_msg = validate_restaurant_name(name)
     if not is_valid:
@@ -115,7 +123,11 @@ def add_restaurant():
     # Create restaurant
     try:
         model = get_restaurant_model()
-        restaurant = model.create(name, categories, distance, username, closed_days)
+        restaurant = model.create(
+            name, categories, distance, username, closed_days,
+            place_id=place_id, phone=phone, address=address,
+            website=website, google_distance=google_distance, eta=eta
+        )
 
         return jsonify(create_success_response({
             "restaurant": restaurant,
@@ -148,6 +160,14 @@ def update_restaurant(restaurant_id):
     distance = data.get('distance')
     closed_days = data.get('closed_days')
 
+    # Extract Google Places data
+    place_id = data.get('place_id')
+    phone = data.get('phone')
+    address = data.get('address')
+    website = data.get('website')
+    google_distance = data.get('google_distance')
+    eta = data.get('eta')
+
     # Validate name if provided
     if name is not None:
         is_valid, error_msg = validate_restaurant_name(name)
@@ -161,7 +181,11 @@ def update_restaurant(restaurant_id):
     # Update restaurant
     try:
         model = get_restaurant_model()
-        restaurant = model.update(restaurant_id, name=name, categories=categories, distance=distance, closed_days=closed_days)
+        restaurant = model.update(
+            restaurant_id, name=name, categories=categories, distance=distance, closed_days=closed_days,
+            place_id=place_id, phone=phone, address=address, website=website,
+            google_distance=google_distance, eta=eta
+        )
 
         if not restaurant:
             return jsonify(create_error_response("Restaurant not found")), 404
@@ -391,6 +415,86 @@ def get_distances():
         "distances": Config.VALID_DISTANCES,
         "default": Config.DEFAULT_DISTANCE
     }))
+
+
+@api.route('/config', methods=['GET'])
+def get_config():
+    """Get public configuration settings"""
+    from app.config import Config
+
+    return jsonify(create_success_response({
+        "zip_code": Config.ZIP_CODE,
+        "google_places_enabled": Config.GOOGLE_PLACES_ENABLED
+    }))
+
+
+@api.route('/places/search', methods=['GET'])
+def search_places():
+    """
+    Search Google Places for restaurants
+    Query param: q (search query)
+    Returns: List of matching places
+    """
+    from app.config import Config
+    from app.google_places import GooglePlacesService
+
+    # Check if Google Places is enabled
+    if not Config.GOOGLE_PLACES_ENABLED or not Config.GOOGLE_PLACES_API_KEY:
+        return jsonify(create_error_response("Google Places feature is not enabled")), 400
+
+    # Get search query
+    query = request.args.get('q', '').strip()
+    if len(query) < 2:
+        return jsonify(create_success_response({"places": []}))
+
+    # Search via GooglePlacesService
+    try:
+        service = GooglePlacesService(
+            Config.GOOGLE_PLACES_API_KEY,
+            Config.GOOGLE_PLACES_LOCATION,
+            Config.GOOGLE_PLACES_RADIUS
+        )
+        places = service.search_places(query)
+
+        return jsonify(create_success_response({
+            "places": places
+        }))
+
+    except Exception as e:
+        return jsonify(create_error_response(f"Search failed: {str(e)}")), 500
+
+
+@api.route('/places/details/<place_id>', methods=['GET'])
+def get_place_details(place_id):
+    """
+    Get detailed information for a specific place
+    Returns: Full place details
+    """
+    from app.config import Config
+    from app.google_places import GooglePlacesService
+
+    # Check if enabled
+    if not Config.GOOGLE_PLACES_ENABLED or not Config.GOOGLE_PLACES_API_KEY:
+        return jsonify(create_error_response("Google Places feature is not enabled")), 400
+
+    # Fetch details
+    try:
+        service = GooglePlacesService(
+            Config.GOOGLE_PLACES_API_KEY,
+            Config.GOOGLE_PLACES_LOCATION,
+            Config.GOOGLE_PLACES_RADIUS
+        )
+        details = service.get_place_details(place_id)
+
+        if not details:
+            return jsonify(create_error_response("Place not found")), 404
+
+        return jsonify(create_success_response({
+            "place": details
+        }))
+
+    except Exception as e:
+        return jsonify(create_error_response(f"Failed to fetch place details: {str(e)}")), 500
 
 
 @api.route('/backup', methods=['POST'])

@@ -9,7 +9,8 @@ class RestaurantModel:
     def __init__(self, redis_client):
         self.redis = redis_client
 
-    def create(self, name, categories, distance, added_by, closed_days=None):
+    def create(self, name, categories, distance, added_by, closed_days=None,
+               place_id='', phone='', address='', website='', google_distance='', eta=''):
         """
         Create a new restaurant entry
 
@@ -19,6 +20,12 @@ class RestaurantModel:
             distance (str): Distance level (nearby, short-drive, medium-drive, far)
             added_by (str): Username who added it
             closed_days (list, optional): Days restaurant is closed (0=Sunday, 1=Monday, ..., 6=Saturday)
+            place_id (str, optional): Google Place ID
+            phone (str, optional): Phone number
+            address (str, optional): Full address
+            website (str, optional): Website URL
+            google_distance (str, optional): Distance in meters from configured location
+            eta (str, optional): Estimated driving time in minutes
 
         Returns:
             dict: Created restaurant data with id
@@ -52,7 +59,14 @@ class RestaurantModel:
             "closed_days": json.dumps(closed_days),  # Store as JSON array
             "added_by": added_by,
             "added_at": datetime.utcnow().isoformat(),
-            "is_active": "1"
+            "is_active": "1",
+            # Google Places data
+            "place_id": place_id,
+            "phone": phone,
+            "address": address,
+            "website": website,
+            "google_distance": google_distance,
+            "eta": eta
         }
 
         # Store in Redis
@@ -99,7 +113,7 @@ class RestaurantModel:
                 formatted['categories'] = json.loads(formatted['categories'])
             except (json.JSONDecodeError, TypeError):
                 # Fallback for old single-category format
-                formatted['categories'] = [formatted.get('category', 'quick')]
+                formatted['categories'] = [formatted.get('category', 'takeout')]
 
         # Parse closed_days JSON if present
         if 'closed_days' in formatted:
@@ -109,6 +123,20 @@ class RestaurantModel:
                 formatted['closed_days'] = []
         else:
             formatted['closed_days'] = []
+
+        # Add defaults for Google Places fields if not present (backward compatibility)
+        if 'place_id' not in formatted:
+            formatted['place_id'] = ''
+        if 'phone' not in formatted:
+            formatted['phone'] = ''
+        if 'address' not in formatted:
+            formatted['address'] = ''
+        if 'website' not in formatted:
+            formatted['website'] = ''
+        if 'google_distance' not in formatted:
+            formatted['google_distance'] = ''
+        if 'eta' not in formatted:
+            formatted['eta'] = ''
 
         return formatted
 
@@ -721,7 +749,8 @@ class RestaurantModel:
         result = self.redis.sadd("custom_categories", category_name)
         return result > 0
 
-    def update(self, restaurant_id, name=None, categories=None, distance=None, closed_days=None):
+    def update(self, restaurant_id, name=None, categories=None, distance=None, closed_days=None,
+               place_id=None, phone=None, address=None, website=None, google_distance=None, eta=None):
         """
         Update restaurant details
 
@@ -731,6 +760,12 @@ class RestaurantModel:
             categories (list, optional): New list of categories
             distance (str, optional): New distance level
             closed_days (list, optional): List of closed day numbers (0-6)
+            place_id (str, optional): Google Place ID
+            phone (str, optional): Phone number
+            address (str, optional): Full address
+            website (str, optional): Website URL
+            google_distance (str, optional): Distance in meters
+            eta (str, optional): ETA in minutes
 
         Returns:
             dict: Updated restaurant data or None if not found
@@ -775,6 +810,20 @@ class RestaurantModel:
                 except (ValueError, TypeError):
                     raise ValueError(f"Invalid day value: {day}")
             updates['closed_days'] = json.dumps(validated_days)
+
+        # Update Google Places fields
+        if place_id is not None:
+            updates['place_id'] = place_id
+        if phone is not None:
+            updates['phone'] = phone
+        if address is not None:
+            updates['address'] = address
+        if website is not None:
+            updates['website'] = website
+        if google_distance is not None:
+            updates['google_distance'] = google_distance
+        if eta is not None:
+            updates['eta'] = eta
 
         if updates:
             self.redis.hset(f"restaurants:{restaurant_id}", mapping=updates)
@@ -878,7 +927,7 @@ class RestaurantModel:
                     # Create restaurant with original ID
                     restaurant_id = restaurant_data.get('id')
                     name = restaurant_data.get('name')
-                    categories = restaurant_data.get('categories', ['quick'])
+                    categories = restaurant_data.get('categories', ['takeout'])
                     distance = restaurant_data.get('distance', Config.DEFAULT_DISTANCE)
                     added_by = restaurant_data.get('added_by', 'restored')
                     is_active = restaurant_data.get('is_active', '1')
