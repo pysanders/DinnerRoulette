@@ -14,7 +14,8 @@ const state = {
     zipCode: '00000',  // Default zip code
     placesEnabled: false,  // Google Places feature enabled
     selectedPlace: null,  // Currently selected place from Google
-    searchTimeout: null  // Debounce timeout for search
+    searchTimeout: null,  // Debounce timeout for search
+    isSpinning: false  // Prevent multiple simultaneous spins
 };
 
 // DOM Elements
@@ -385,7 +386,9 @@ function renderCheckboxesInContainer(container, categories) {
 
 // Handle category change
 function handleCategoryChange(category) {
+    console.log('[FILTER] Category changed to:', category);
     state.selectedCategory = category;
+    console.log('[FILTER] State updated - selectedCategory:', state.selectedCategory, 'selectedDistance:', state.selectedDistance);
 
     // Update button states
     const buttons = elements.categoryButtonsContainer.querySelectorAll('.category-btn');
@@ -403,7 +406,9 @@ function handleCategoryChange(category) {
 
 // Handle distance change
 function handleDistanceChange(distance) {
+    console.log('[FILTER] Distance changed to:', distance);
     state.selectedDistance = distance;
+    console.log('[FILTER] State updated - selectedCategory:', state.selectedCategory, 'selectedDistance:', state.selectedDistance);
 
     // Update button states
     elements.distanceButtons.forEach(btn => {
@@ -967,33 +972,60 @@ function createGoogleIcon(restaurantName) {
 
 // Handle spin button
 async function handleSpin() {
+    // Prevent multiple simultaneous spins
+    if (state.isSpinning) {
+        console.warn('[SPIN] Already spinning, ignoring duplicate click');
+        return;
+    }
+
     if (state.restaurants.length === 0) {
         showToast('No restaurants available. Add some first!', 'error');
         return;
     }
 
+    // Set spinning flag
+    state.isSpinning = true;
+
     // Add spinning animation
     elements.spinButton.classList.add('spinning');
 
     try {
+        // Log current state before building request
+        console.log('[SPIN] Current state before request:');
+        console.log('  - selectedCategory:', state.selectedCategory, '(type:', typeof state.selectedCategory, ', length:', state.selectedCategory?.length, ')');
+        console.log('  - selectedDistance:', state.selectedDistance, '(type:', typeof state.selectedDistance, ', length:', state.selectedDistance?.length, ')');
+
         const params = new URLSearchParams();
         if (state.selectedCategory) {
+            console.log('[SPIN] Adding category parameter:', state.selectedCategory);
             params.append('category', state.selectedCategory);
+        } else {
+            console.log('[SPIN] NOT adding category (value is:', state.selectedCategory, ')');
         }
         if (state.selectedDistance) {
+            console.log('[SPIN] Adding distance parameter:', state.selectedDistance);
             params.append('distance', state.selectedDistance);
+        } else {
+            console.log('[SPIN] NOT adding distance (value is:', state.selectedDistance, ')');
         }
 
         const url = params.toString()
             ? `/api/randomize?${params.toString()}`
             : '/api/randomize';
 
+        console.log('[SPIN] Final URL:', url);
+        console.log('[SPIN] Filters - Category:', state.selectedCategory || 'none', 'Distance:', state.selectedDistance || 'none');
+
         const response = await fetch(url);
         const data = await response.json();
 
+        console.log('[SPIN] Response received:', data);
+
         if (data.success && data.restaurant) {
+            console.log('[SPIN] Setting current result to:', data.restaurant.name, '(ID:', data.restaurant.id, ')');
             state.currentResult = data.restaurant;
             state.currentEntryId = data.entry_id;
+            console.log('[SPIN] Calling showResult with:', data.restaurant.name);
             showResult(data.restaurant);
             loadHistory(); // Reload history to show the new spin
         } else {
@@ -1005,23 +1037,29 @@ async function handleSpin() {
             }
         }
     } catch (error) {
-        console.error('Error getting random restaurant:', error);
+        console.error('[SPIN] Error getting random restaurant:', error);
         showToast('Failed to pick a restaurant', 'error');
     } finally {
         // Remove spinning animation after delay
         setTimeout(() => {
             elements.spinButton.classList.remove('spinning');
+            state.isSpinning = false;
+            console.log('[SPIN] Spin completed, flag reset');
         }, 500);
     }
 }
 
 // Show result
 function showResult(restaurant) {
+    console.log('[SHOW_RESULT] Called with restaurant:', restaurant.name, '(ID:', restaurant.id, ')');
+
     // Clear and rebuild the restaurant name with Google icon
     elements.restaurantName.innerHTML = '';
 
     const nameText = document.createTextNode(restaurant.name);
     elements.restaurantName.appendChild(nameText);
+
+    console.log('[SHOW_RESULT] Displaying restaurant name:', restaurant.name);
 
     const googleIcon = createGoogleIcon(restaurant.name);
     googleIcon.style.marginLeft = '10px';
