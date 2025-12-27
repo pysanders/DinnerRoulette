@@ -17,8 +17,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy application code
 COPY . .
 
-# Create a non-root user
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+# Create a non-root user and set up directories
+# Use UID 99 and GID 100 to match Unraid's nobody:users
+RUN groupadd -g 100 users || true && \
+    useradd -m -u 99 -g 100 appuser && \
+    mkdir -p /app/backups && \
+    chown -R 99:100 /app
 USER appuser
 
 # Expose port

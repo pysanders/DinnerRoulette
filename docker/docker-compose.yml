@@ -8,6 +8,12 @@ services:
     container_name: dinner-roulette-web
     ports:
       - "5000:5000"
+    volumes:
+      # Mount backups directory to persist data on host
+      # For Unraid: Container runs as nobody:users (99:100)
+      # Create directory: mkdir -p /mnt/user/appdata/dinner-roulette/backups
+      # Set permissions: chown -R nobody:users /mnt/user/appdata/dinner-roulette/backups
+      - ./backups:/app/backups
     environment:
       - FLASK_ENV=production
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
