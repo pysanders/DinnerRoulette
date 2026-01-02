@@ -257,8 +257,16 @@ def randomize():
         }
         return jsonify(response), 429
 
+    # Debug request parameters
+    logger.info(f"RANDOMIZE_DEBUG: Full request URL: {request.url}")
+    logger.info(f"RANDOMIZE_DEBUG: Query string: {request.query_string}")
+    logger.info(f"RANDOMIZE_DEBUG: request.args: {dict(request.args)}")
+
     category = request.args.get('category', '').strip()
     distance = request.args.get('distance', '').strip()
+
+    # Log the received filters
+    logger.info(f"RANDOMIZE_REQUEST: user='{username}', category='{category}', distance='{distance}'")
 
     # Get random restaurant
     restaurant = model.get_random(

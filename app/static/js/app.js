@@ -230,7 +230,8 @@ async function checkUser() {
             await loadCategories();
             loadRestaurants();
             await loadHistory();
-            checkCooldownStatus();
+            // Don't check cooldown automatically - it will show when user tries to spin
+            // checkCooldownStatus();
         } else {
             showWelcomeModal();
             await loadConfig();
