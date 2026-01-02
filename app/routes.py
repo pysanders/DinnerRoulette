@@ -266,6 +266,10 @@ def randomize():
         distance=distance if distance else None
     )
 
+    # Log immediately after selection
+    if restaurant:
+        logger.info(f"POST_SELECT: get_random returned '{restaurant.get('name')}' (ID: {restaurant.get('id')}) for user '{username}'")
+
     if not restaurant:
         filters = []
         if category:
@@ -280,20 +284,27 @@ def randomize():
             404
         )), 404
 
-    # Log the spin details
+    # Log the spin details BEFORE any operations
     restaurant_name = restaurant.get('name', 'Unknown')
     restaurant_id = restaurant.get('id', 'Unknown')
     logger.info(f"SPIN: User '{username}' spun and got restaurant '{restaurant_name}' (ID: {restaurant_id})")
+    logger.debug(f"SPIN_DEBUG: Full restaurant object: {restaurant}")
 
     # Record spin time for rate limiting
     model.record_user_spin(username)
 
     # Save to history and get entry ID
     entry_id = model.add_to_history(username, restaurant)
-    logger.info(f"HISTORY: Added entry {entry_id} for user '{username}' - restaurant '{restaurant_name}' (ID: {restaurant_id})")
+
+    # Log what was ACTUALLY saved by re-checking the restaurant object
+    logger.info(f"HISTORY: Added entry {entry_id} for user '{username}' - restaurant '{restaurant.get('name')}' (ID: {restaurant.get('id')})")
+
+    # Verify the restaurant object hasn't changed
+    if restaurant.get('name') != restaurant_name or restaurant.get('id') != restaurant_id:
+        logger.error(f"BUG DETECTED: Restaurant object changed! Was: {restaurant_name} (ID: {restaurant_id}), Now: {restaurant.get('name')} (ID: {restaurant.get('id')})")
 
     # Log what we're returning to the frontend
-    logger.debug(f"RESPONSE: Returning restaurant '{restaurant_name}' (ID: {restaurant_id}) to user '{username}'")
+    logger.info(f"RESPONSE: Returning to frontend - restaurant '{restaurant.get('name')}' (ID: {restaurant.get('id')}), entry_id: {entry_id}")
 
     return jsonify(create_success_response({
         "restaurant": restaurant,

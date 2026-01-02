@@ -1354,26 +1354,40 @@ async function showCooldownBanner(secondsRemaining) {
     }, 1000);
 
     // Show the last spin result if available
-    if (!state.currentResult && state.history && state.history.length > 0) {
-        // Get the most recent spin from history
-        const lastSpin = state.history[0];
-
-        // Fetch the full restaurant details to display
+    if (!state.currentResult) {
+        // Fetch FRESH history from the API to ensure we show the most recent spin
         try {
-            const response = await fetch('/api/restaurants');
-            const data = await response.json();
+            const historyResponse = await fetch('/api/history?limit=1');
+            const historyData = await historyResponse.json();
 
-            if (data.success) {
-                const restaurant = data.restaurants.find(r => r.name === lastSpin.restaurant_name);
-                if (restaurant) {
-                    state.currentResult = restaurant;
-                    state.currentEntryId = lastSpin.id;
-                    showResult(restaurant);
+            if (historyData.success && historyData.history && historyData.history.length > 0) {
+                const lastSpin = historyData.history[0];
+                console.log('[COOLDOWN] Fetching last spin from history:', lastSpin.restaurant_name, '(ID:', lastSpin.restaurant_id, ')');
+
+                // Fetch the full restaurant details to display
+                const restaurantsResponse = await fetch('/api/restaurants');
+                const restaurantsData = await restaurantsResponse.json();
+
+                if (restaurantsData.success) {
+                    // Find by ID first (more reliable), fallback to name
+                    const restaurant = restaurantsData.restaurants.find(r => r.id === lastSpin.restaurant_id) ||
+                                     restaurantsData.restaurants.find(r => r.name === lastSpin.restaurant_name);
+
+                    if (restaurant) {
+                        console.log('[COOLDOWN] Displaying restaurant:', restaurant.name, '(ID:', restaurant.id, ')');
+                        state.currentResult = restaurant;
+                        state.currentEntryId = lastSpin.id;
+                        showResult(restaurant);
+                    } else {
+                        console.warn('[COOLDOWN] Could not find restaurant:', lastSpin.restaurant_name, '(ID:', lastSpin.restaurant_id, ')');
+                    }
                 }
             }
         } catch (error) {
-            console.error('Error loading last spin:', error);
+            console.error('[COOLDOWN] Error loading last spin:', error);
         }
+    } else {
+        console.log('[COOLDOWN] Using current result:', state.currentResult.name, '(ID:', state.currentResult.id, ')');
     }
 }
 
