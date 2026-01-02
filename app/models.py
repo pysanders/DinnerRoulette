@@ -561,13 +561,17 @@ class RestaurantModel:
         # Set expiry to cleanup old data (2x timeout period)
         self.redis.expire(last_spin_key, Config.SPIN_TIMEOUT_SECONDS * 2)
 
-    def add_to_history(self, username, restaurant):
+    def add_to_history(self, username, restaurant, filter_category=None, filter_distance=None, pool_snapshot=None):
         """
         Add a spin to the history
 
         Args:
             username (str): Username who pressed spin
             restaurant (dict): Restaurant that was selected
+            filter_category (str, optional): Category filter that was used
+            filter_distance (str, optional): Distance filter that was used
+            pool_snapshot (dict, optional): Complete snapshot of the pool at spin time
+                                          (from get_randomization_stats)
 
         Returns:
             str: History entry ID (timestamp-based)
@@ -590,7 +594,12 @@ class RestaurantModel:
             "restaurant_name": restaurant.get("name"),
             "category": category,
             "timestamp": datetime.utcnow().isoformat(),
-            "went": False
+            "went": False,
+            # Store the filters that were used for this spin (for evidence)
+            "filter_category": filter_category or "",
+            "filter_distance": filter_distance or "",
+            # Store complete pool snapshot for evidence (what was available at spin time)
+            "pool_snapshot": pool_snapshot if pool_snapshot else {}
         }
 
         # Log what we're about to store

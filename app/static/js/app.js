@@ -128,6 +128,10 @@ function initializeElements() {
     elements.statsModal = document.getElementById('stats-modal');
     elements.closeStatsModal = document.getElementById('close-stats-modal');
     elements.statsContent = document.getElementById('stats-content');
+    elements.detailsModal = document.getElementById('details-modal');
+    elements.closeDetailsModal = document.getElementById('close-details-modal');
+    elements.detailsContent = document.getElementById('details-content');
+    elements.showDetailsBtn = document.getElementById('show-details-btn');
     elements.cooldownBanner = document.getElementById('cooldown-banner');
     elements.cooldownTime = document.getElementById('cooldown-time');
     // Google Places elements (Add Modal)
@@ -185,6 +189,10 @@ function setupEventListeners() {
     // Stats modal
     elements.statsBtn.addEventListener('click', openStatsModal);
     elements.closeStatsModal.addEventListener('click', closeStatsModal);
+
+    // Details modal
+    elements.showDetailsBtn.addEventListener('click', () => showEvidenceForEntry(null));
+    elements.closeDetailsModal.addEventListener('click', closeDetailsModal);
 
     // Custom category
     elements.addCategoryBtn.addEventListener('click', handleAddCategory);
@@ -549,13 +557,30 @@ function createRestaurantCard(restaurant) {
         }
 
         if (restaurant.google_distance) {
-            const distanceSpan = document.createElement('span');
-            distanceSpan.className = 'contact-link';
-            distanceSpan.style.cursor = 'default';
+            const distanceLink = document.createElement('a');
+            distanceLink.className = 'contact-link';
             const distanceText = formatMetersToMiles(restaurant.google_distance);
             const etaText = restaurant.eta ? ` (${formatETA(restaurant.eta)})` : '';
-            distanceSpan.innerHTML = `📍 ${distanceText}${etaText}`;
-            contactInfo.appendChild(distanceSpan);
+            distanceLink.innerHTML = `📍 ${distanceText}${etaText}`;
+
+            // Create Apple Maps directions link
+            if (restaurant.address) {
+                distanceLink.href = `https://maps.apple.com/?daddr=${encodeURIComponent(restaurant.address)}`;
+                distanceLink.target = '_blank';
+                distanceLink.rel = 'noopener noreferrer';
+                distanceLink.title = 'Get directions in Apple Maps';
+            } else if (restaurant.name) {
+                // Fallback to restaurant name if no address
+                distanceLink.href = `https://maps.apple.com/?q=${encodeURIComponent(restaurant.name)}`;
+                distanceLink.target = '_blank';
+                distanceLink.rel = 'noopener noreferrer';
+                distanceLink.title = 'Search in Apple Maps';
+            } else {
+                distanceLink.style.cursor = 'default';
+            }
+
+            distanceLink.addEventListener('click', (e) => e.stopPropagation());
+            contactInfo.appendChild(distanceLink);
         }
 
         if (restaurant.address) {
@@ -1089,13 +1114,29 @@ function showResult(restaurant) {
         }
 
         if (restaurant.google_distance) {
-            const distanceSpan = document.createElement('span');
-            distanceSpan.className = 'contact-link';
-            distanceSpan.style.cursor = 'default';
+            const distanceLink = document.createElement('a');
+            distanceLink.className = 'contact-link';
             const distanceText = formatMetersToMiles(restaurant.google_distance);
             const etaText = restaurant.eta ? ` (${formatETA(restaurant.eta)})` : '';
-            distanceSpan.innerHTML = `📍 ${distanceText}${etaText}`;
-            elements.resultContactInfo.appendChild(distanceSpan);
+            distanceLink.innerHTML = `📍 ${distanceText}${etaText}`;
+
+            // Create Apple Maps directions link
+            if (restaurant.address) {
+                distanceLink.href = `https://maps.apple.com/?daddr=${encodeURIComponent(restaurant.address)}`;
+                distanceLink.target = '_blank';
+                distanceLink.rel = 'noopener noreferrer';
+                distanceLink.title = 'Get directions in Apple Maps';
+            } else if (restaurant.name) {
+                // Fallback to restaurant name if no address
+                distanceLink.href = `https://maps.apple.com/?q=${encodeURIComponent(restaurant.name)}`;
+                distanceLink.target = '_blank';
+                distanceLink.rel = 'noopener noreferrer';
+                distanceLink.title = 'Search in Apple Maps';
+            } else {
+                distanceLink.style.cursor = 'default';
+            }
+
+            elements.resultContactInfo.appendChild(distanceLink);
         }
 
         if (restaurant.address) {
@@ -1304,6 +1345,10 @@ function createHistoryItem(entry) {
     const meta = document.createElement('div');
     meta.className = 'history-meta';
 
+    // Create left side container for badges and spinner
+    const metaLeft = document.createElement('div');
+    metaLeft.className = 'history-meta-left';
+
     const badge = document.createElement('span');
     badge.className = `category-badge ${entry.category}`;
     badge.textContent = formatCategory(entry.category);
@@ -1311,16 +1356,29 @@ function createHistoryItem(entry) {
     const spinner = document.createElement('span');
     spinner.textContent = `Spun by ${entry.username}`;
 
-    meta.appendChild(badge);
-    meta.appendChild(spinner);
+    metaLeft.appendChild(badge);
+    metaLeft.appendChild(spinner);
 
     // Add "went" badge if applicable
     if (entry.went) {
         const wentBadge = document.createElement('span');
         wentBadge.className = 'went-badge';
         wentBadge.textContent = '✓ Went';
-        meta.appendChild(wentBadge);
+        metaLeft.appendChild(wentBadge);
     }
+
+    // Add "Show Evidence" button (will be on the right side)
+    const evidenceBtn = document.createElement('button');
+    evidenceBtn.className = 'btn-evidence-small';
+    evidenceBtn.textContent = '📊 Show Evidence';
+    evidenceBtn.title = 'View selection details for this spin';
+    evidenceBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        showEvidenceForEntry(entry);
+    });
+
+    meta.appendChild(metaLeft);
+    meta.appendChild(evidenceBtn);
 
     item.appendChild(header);
     item.appendChild(meta);
@@ -1603,6 +1661,124 @@ async function openStatsModal() {
 // Close stats modal
 function closeStatsModal() {
     elements.statsModal.classList.add('hidden');
+}
+
+// Show evidence for a history entry or current spin
+async function showEvidenceForEntry(entry) {
+    elements.detailsModal.classList.remove('hidden');
+    elements.detailsContent.innerHTML = '<p class="loading-message">Loading selection details...</p>';
+
+    try {
+        // If no entry provided, use current result
+        let evidenceData;
+        if (!entry && state.currentResult && state.currentEntryId) {
+            // For current spin, fetch from history
+            const historyResponse = await fetch(`/api/history`);
+            const historyData = await historyResponse.json();
+            if (historyData.success) {
+                entry = historyData.history.find(h => h.id === state.currentEntryId);
+            }
+        }
+
+        if (!entry) {
+            elements.detailsContent.innerHTML = '<p class="error-message">No spin data available</p>';
+            return;
+        }
+
+        // Build the evidence HTML
+        let html = '<div class="evidence-details">';
+
+        // Filters used
+        html += '<div class="evidence-section">';
+        html += '<h3>Filters Applied</h3>';
+        if (entry.filter_category || entry.filter_distance) {
+            if (entry.filter_category) {
+                html += `<p>Category: <strong>${formatCategory(entry.filter_category)}</strong></p>`;
+            } else {
+                html += `<p>Category: <strong>All</strong></p>`;
+            }
+            if (entry.filter_distance) {
+                html += `<p>Distance: <strong>${formatDistance(entry.filter_distance)}</strong></p>`;
+            }
+        } else {
+            html += '<p>No filters applied</p>';
+        }
+        html += '</div>';
+
+        // Use stored pool snapshot if available, otherwise fetch current stats
+        let poolData = null;
+        if (entry.pool_snapshot && Object.keys(entry.pool_snapshot).length > 0) {
+            // Use the stored snapshot from spin time
+            poolData = entry.pool_snapshot;
+            console.log('[EVIDENCE] Using stored pool snapshot from spin time');
+        } else {
+            // Fallback: fetch current stats (for old entries without snapshot)
+            console.log('[EVIDENCE] No pool snapshot found, fetching current stats');
+            const params = new URLSearchParams();
+            if (entry.filter_category) {
+                params.append('category', entry.filter_category);
+            }
+            if (entry.filter_distance) {
+                params.append('distance', entry.filter_distance);
+            }
+            const statsResponse = await fetch(`/api/randomize/stats?${params}`);
+            const statsData = await statsResponse.json();
+            if (statsData.success) {
+                poolData = statsData;
+            }
+        }
+
+        if (poolData) {
+            html += '<div class="evidence-section">';
+            html += '<h3>Selection Pool (at time of spin)</h3>';
+            html += `<p>Total pool size: <strong>${poolData.total_pool_size} items</strong></p>`;
+
+            if (poolData.excluded) {
+                html += `<p class="evidence-closed">🚫 Recently excluded: ${poolData.excluded} - ${poolData.excluded_reason}</p>`;
+            }
+
+            if (poolData.closed_today && poolData.closed_today.length > 0) {
+                html += `<p class="evidence-closed">🔒 Closed today: ${poolData.closed_today.join(', ')}</p>`;
+            }
+
+            // Show probability table
+            html += '<table class="stats-table">';
+            html += '<thead><tr><th>Restaurant</th><th>Count</th><th>Probability</th></tr></thead>';
+            html += '<tbody>';
+
+            poolData.items.forEach(item => {
+                const isSelected = item.name === entry.restaurant_name;
+                const rowClass = item.excluded ? 'excluded-row' : (isSelected ? 'selected-row' : '');
+                html += `<tr class="${rowClass}">`;
+                html += `<td>${item.name}`;
+                if (isSelected) {
+                    html += ' <strong>✓ Selected</strong>';
+                }
+                if (item.excluded && item.excluded_reason) {
+                    html += `<br><small class="exclusion-reason">🚫 ${item.excluded_reason}</small>`;
+                }
+                html += `</td>`;
+                html += `<td>${item.count}</td>`;
+                html += `<td class="stats-percentage ${item.excluded ? 'excluded-percentage' : ''}">${item.percentage}%</td>`;
+                html += '</tr>';
+            });
+
+            html += '</tbody></table>';
+            html += '</div>';
+        }
+
+        html += '</div>';
+
+        elements.detailsContent.innerHTML = html;
+    } catch (error) {
+        console.error('Error loading evidence:', error);
+        elements.detailsContent.innerHTML = '<p class="error-message">Failed to load selection details</p>';
+    }
+}
+
+// Close details modal
+function closeDetailsModal() {
+    elements.detailsModal.classList.add('hidden');
 }
 
 // Render stats content

@@ -268,6 +268,13 @@ def randomize():
     # Log the received filters
     logger.info(f"RANDOMIZE_REQUEST: user='{username}', category='{category}', distance='{distance}'")
 
+    # Capture pool snapshot BEFORE selection (for evidence)
+    pool_snapshot = model.get_randomization_stats(
+        category=category if category else None,
+        distance=distance if distance else None
+    )
+    logger.debug(f"POOL_SNAPSHOT: Captured {pool_snapshot.get('total_pool_size')} items in pool")
+
     # Get random restaurant
     restaurant = model.get_random(
         category=category if category else None,
@@ -301,11 +308,17 @@ def randomize():
     # Record spin time for rate limiting
     model.record_user_spin(username)
 
-    # Save to history and get entry ID
-    entry_id = model.add_to_history(username, restaurant)
+    # Save to history with filters AND pool snapshot for evidence
+    entry_id = model.add_to_history(
+        username,
+        restaurant,
+        filter_category=category if category else None,
+        filter_distance=distance if distance else None,
+        pool_snapshot=pool_snapshot
+    )
 
     # Log what was ACTUALLY saved by re-checking the restaurant object
-    logger.info(f"HISTORY: Added entry {entry_id} for user '{username}' - restaurant '{restaurant.get('name')}' (ID: {restaurant.get('id')})")
+    logger.info(f"HISTORY: Added entry {entry_id} for user '{username}' - restaurant '{restaurant.get('name')}' (ID: {restaurant.get('id')}), filters=(category='{category}', distance='{distance}')")
 
     # Verify the restaurant object hasn't changed
     if restaurant.get('name') != restaurant_name or restaurant.get('id') != restaurant_id:

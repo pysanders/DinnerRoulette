@@ -72,9 +72,14 @@
             <div id="result-display" class="result-card hidden">
                 <h2 id="restaurant-name"></h2>
                 <div id="result-contact-info" class="restaurant-contact"></div>
-                <button id="going-btn" class="btn-going">
-                    ✓ We're Going!
-                </button>
+                <div class="result-actions">
+                    <button id="going-btn" class="btn-going">
+                        ✓ We're Going!
+                    </button>
+                    <button id="show-details-btn" class="btn-evidence" title="Show selection evidence">
+                        📊 Show Evidence
+                    </button>
+                </div>
             </div>
             <div class="spin-controls">
                 <button id="spin-btn" class="spin-button">
@@ -345,6 +350,21 @@
             <div class="modal-body">
                 <div id="stats-content">
                     <p class="loading-message">Loading stats...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Selection Details Modal -->
+    <div id="details-modal" class="modal hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🔍 Selection Details & Evidence</h2>
+                <button class="close-btn" id="close-details-modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="details-content">
+                    <p class="loading-message">Loading selection details...</p>
                 </div>
             </div>
         </div>
