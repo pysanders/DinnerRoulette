@@ -953,19 +953,42 @@ class RestaurantModel:
                     added_by = restaurant_data.get('added_by', 'restored')
                     is_active = restaurant_data.get('is_active', '1')
 
-                    # Manually create to preserve ID
+                    # Get all optional fields
+                    closed_days = restaurant_data.get('closed_days', [])
+                    place_id = restaurant_data.get('place_id', '')
+                    phone = restaurant_data.get('phone', '')
+                    address = restaurant_data.get('address', '')
+                    website = restaurant_data.get('website', '')
+                    google_distance = restaurant_data.get('google_distance', '')
+                    eta = restaurant_data.get('eta', '')
+
+                    # Manually create to preserve ID (include ALL fields)
                     restaurant_hash = {
                         "id": restaurant_id,
                         "name": name,
                         "categories": json.dumps(categories) if isinstance(categories, list) else categories,
                         "distance": distance,
+                        "closed_days": json.dumps(closed_days) if isinstance(closed_days, list) else closed_days,
                         "added_by": added_by,
                         "added_at": restaurant_data.get('added_at', datetime.utcnow().isoformat()),
-                        "is_active": is_active
+                        "is_active": is_active,
+                        # Google Places data
+                        "place_id": place_id,
+                        "phone": phone,
+                        "address": address,
+                        "website": website,
+                        "google_distance": str(google_distance) if google_distance else '',
+                        "eta": str(eta) if eta else ''
                     }
 
                     # Store in Redis
                     self.redis.hset(f"restaurants:{restaurant_id}", mapping=restaurant_hash)
+
+                    # VERIFY the data was actually written
+                    verify = self.redis.hget(f"restaurants:{restaurant_id}", "name")
+                    if not verify:
+                        logger.error(f"VERIFICATION FAILED: Restaurant {restaurant_id} hash not written!")
+                        continue
 
                     # Update indexes if active
                     if is_active == '1':
@@ -976,10 +999,26 @@ class RestaurantModel:
                             self.redis.sadd(f"restaurants:by_distance:{distance}", restaurant_id)
 
                     restaurants_restored += 1
+                    logger.info(f"Restored restaurant {restaurant_id}: {name}")
 
                 except Exception as e:
                     logger.error(f"Error restoring restaurant {restaurant_data.get('id')}: {e}")
                     continue
+
+        # Force persistence after restore
+        try:
+            self.redis.bgsave()
+            logger.info("Initiated BGSAVE after restore to ensure persistence")
+        except Exception as e:
+            logger.warning(f"BGSAVE after restore failed (may already be running): {e}")
+
+        # Update counter to highest ID to prevent conflicts
+        if backup_data.get('restaurants'):
+            max_id = max(int(r.get('id', 0)) for r in backup_data['restaurants'])
+            current_counter = self.redis.get("restaurants:counter")
+            if not current_counter or int(current_counter) < max_id:
+                self.redis.set("restaurants:counter", max_id)
+                logger.info(f"Updated restaurants:counter to {max_id}")
 
         return {
             "restaurants_restored": restaurants_restored,

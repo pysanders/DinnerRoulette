@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - Dinner Roulette</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            padding: 20px;
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+        h1 { color: #ff6b6b; margin-bottom: 5px; }
+        .subtitle { color: #888; margin-bottom: 20px; font-size: 14px; }
+        h2 { color: #4ecdc4; margin: 20px 0 10px; border-bottom: 1px solid #333; padding-bottom: 5px; font-size: 18px; }
+        .card {
+            background: #16213e;
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+        }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+        @media (max-width: 768px) { .grid { grid-template-columns: 1fr; } }
+        .btn {
+            background: #4ecdc4;
+            color: #1a1a2e;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 8px;
+            margin-bottom: 8px;
+            font-size: 13px;
+        }
+        .btn:hover { background: #45b7aa; }
+        .btn-danger { background: #ff6b6b; }
+        .btn-danger:hover { background: #ee5a5a; }
+        .btn-warn { background: #f9a825; color: #1a1a2e; }
+        .btn-warn:hover { background: #f57f17; }
+        .btn:disabled { background: #666; cursor: not-allowed; }
+        .status {
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            font-size: 13px;
+            display: none;
+        }
+        .status.success { background: #2d5a27; display: block; }
+        .status.error { background: #5a2727; display: block; }
+        .status.info { background: #27425a; display: block; }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 10px;
+            font-size: 13px;
+        }
+        th, td {
+            text-align: left;
+            padding: 6px 8px;
+            border-bottom: 1px solid #333;
+        }
+        th { color: #4ecdc4; }
+        .backup-row { cursor: pointer; }
+        .backup-row:hover { background: #1f2b47; }
+        .backup-row.selected { background: #2d4a27; }
+        .redis-info { display: flex; gap: 20px; flex-wrap: wrap; margin-top: 10px; }
+        .redis-stat { background: #0d1117; padding: 10px 15px; border-radius: 5px; }
+        .redis-stat-label { color: #888; font-size: 11px; text-transform: uppercase; }
+        .redis-stat-value { color: #4ecdc4; font-size: 18px; font-weight: bold; }
+        .cooldown-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            background: #0d1117;
+            border-radius: 5px;
+            margin-top: 5px;
+        }
+        .cooldown-active { border-left: 3px solid #ff6b6b; }
+        .cooldown-expired { border-left: 3px solid #4ecdc4; opacity: 0.6; }
+        .tag {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            margin-left: 8px;
+        }
+        .tag-active { background: #5a2727; }
+        .tag-expired { background: #27425a; }
+    </style>
+</head>
+<body>
+    <h1>Dinner Roulette Admin</h1>
+    <p class="subtitle">Hidden admin panel - bookmark this page</p>
+
+    <div class="grid">
+        <!-- Left Column -->
+        <div>
+            <!-- Redis Status -->
+            <div class="card">
+                <h2>Redis Status</h2>
+                <button class="btn" onclick="loadRedisInfo()">Refresh</button>
+                <div id="redis-status" class="status"></div>
+                <div id="redis-info" class="redis-info"></div>
+            </div>
+
+            <!-- Database Status -->
+            <div class="card">
+                <h2>Database Integrity</h2>
+                <button class="btn" onclick="diagnose()">Check Database</button>
+                <button class="btn btn-danger" onclick="fixOrphans()">Fix Orphans</button>
+                <div id="diagnose-status" class="status"></div>
+                <div id="diagnose-result"></div>
+            </div>
+
+            <!-- Cooldowns -->
+            <div class="card">
+                <h2>Spin Cooldowns</h2>
+                <button class="btn" onclick="loadCooldowns()">Refresh</button>
+                <button class="btn btn-warn" onclick="clearAllCooldowns()">Clear All</button>
+                <div id="cooldowns-status" class="status"></div>
+                <div id="cooldowns-list"></div>
+            </div>
+
+            <!-- History -->
+            <div class="card">
+                <h2>Spin History</h2>
+                <button class="btn btn-danger" onclick="clearHistory()">Clear All History</button>
+                <div id="history-status" class="status"></div>
+            </div>
+
+            <!-- Users -->
+            <div class="card">
+                <h2>Users / Sessions</h2>
+                <button class="btn" onclick="loadUsers()">Refresh</button>
+                <div id="users-status" class="status"></div>
+                <div id="users-list"></div>
+            </div>
+        </div>
+
+        <!-- Right Column -->
+        <div>
+            <!-- Backups -->
+            <div class="card">
+                <h2>Backups</h2>
+                <button class="btn" onclick="loadBackups()">Refresh</button>
+                <button class="btn" onclick="createBackup()">Create Backup</button>
+                <div id="backups-status" class="status"></div>
+                <div id="backups-list"></div>
+            </div>
+
+            <!-- Restore -->
+            <div class="card">
+                <h2>Restore Data</h2>
+                <p style="margin-bottom: 10px; color: #888; font-size: 13px;">Select a backup above, or restore latest:</p>
+                <button class="btn" onclick="restoreLatest()">Restore Latest</button>
+                <button class="btn" id="restore-selected-btn" onclick="restoreSelected()" disabled>Restore Selected</button>
+                <div id="restore-status" class="status"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let selectedBackup = null;
+
+        function formatBytes(bytes) {
+            if (bytes < 1024) return bytes + ' B';
+            if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+            return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+        }
+
+        function formatDate(timestamp) {
+            return new Date(timestamp * 1000).toLocaleString();
+        }
+
+        function formatSeconds(seconds) {
+            if (seconds <= 0) return 'Expired';
+            const m = Math.floor(seconds / 60);
+            const s = seconds % 60;
+            return m > 0 ? `${m}m ${s}s` : `${s}s`;
+        }
+
+        function showStatus(elementId, message, type) {
+            const el = document.getElementById(elementId);
+            el.className = 'status ' + type;
+            el.textContent = message;
+        }
+
+        // Redis Info
+        async function loadRedisInfo() {
+            try {
+                const res = await fetch('/api/admin/redis-info');
+                const data = await res.json();
+
+                if (data.connected) {
+                    showStatus('redis-status', 'Connected', 'success');
+                    document.getElementById('redis-info').innerHTML = `
+                        <div class="redis-stat">
+                            <div class="redis-stat-label">Host</div>
+                            <div class="redis-stat-value">${data.host}:${data.port}</div>
+                        </div>
+                        <div class="redis-stat">
+                            <div class="redis-stat-label">DB Size</div>
+                            <div class="redis-stat-value">${data.db_size} keys</div>
+                        </div>
+                        <div class="redis-stat">
+                            <div class="redis-stat-label">Memory</div>
+                            <div class="redis-stat-value">${data.used_memory}</div>
+                        </div>
+                    `;
+                } else {
+                    showStatus('redis-status', 'Disconnected: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showStatus('redis-status', 'Error: ' + e.message, 'error');
+            }
+        }
+
+        // Diagnose
+        async function diagnose() {
+            showStatus('diagnose-status', 'Checking...', 'info');
+            try {
+                const res = await fetch('/api/admin/diagnose');
+                const d = await res.json();
+
+                if (d.success) {
+                    const status = d.missing_data > 0 ? 'error' : 'success';
+                    const msg = d.missing_data > 0
+                        ? `${d.missing_data} orphaned indexes!`
+                        : `OK - ${d.with_data} restaurants`;
+                    showStatus('diagnose-status', msg, status);
+
+                    let html = `<table>
+                        <tr><th>Index</th><td>${d.index_count}</td></tr>
+                        <tr><th>With Data</th><td>${d.with_data}</td></tr>
+                        <tr><th>Orphaned</th><td>${d.missing_data}</td></tr>
+                    </table>`;
+
+                    if (d.orphaned_ids?.length) {
+                        html += `<p style="color:#ff6b6b;margin-top:10px;font-size:12px;">Orphaned: ${d.orphaned_ids.join(', ')}</p>`;
+                    }
+
+                    document.getElementById('diagnose-result').innerHTML = html;
+                }
+            } catch (e) {
+                showStatus('diagnose-status', 'Error: ' + e.message, 'error');
+            }
+        }
+
+        async function fixOrphans() {
+            if (!confirm('Remove orphaned IDs from indexes?')) return;
+            showStatus('diagnose-status', 'Fixing...', 'info');
+            try {
+                const res = await fetch('/api/admin/fix-orphans', { method: 'POST' });
+                const data = await res.json();
+                showStatus('diagnose-status', data.message, 'success');
+                diagnose();
+            } catch (e) {
+                showStatus('diagnose-status', 'Error: ' + e.message, 'error');
+            }
+        }
+
+        // Cooldowns
+        async function loadCooldowns() {
+            try {
+                const res = await fetch('/api/admin/cooldowns');
+                const data = await res.json();
+
+                if (data.cooldowns.length === 0) {
+                    showStatus('cooldowns-status', 'No active cooldowns', 'info');
+                    document.getElementById('cooldowns-list').innerHTML = '';
+                    return;
+                }
+
+                showStatus('cooldowns-status', `${data.count} cooldown(s)`, 'success');
+
+                let html = '';
+                data.cooldowns.forEach(c => {
+                    const cls = c.expired ? 'cooldown-expired' : 'cooldown-active';
+                    const tag = c.expired
+                        ? '<span class="tag tag-expired">Expired</span>'
+                        : '<span class="tag tag-active">' + formatSeconds(c.seconds_remaining) + '</span>';
+                    html += `
+                        <div class="cooldown-item ${cls}">
+                            <span>${c.username} ${tag}</span>
+                            <button class="btn" style="margin:0;padding:4px 10px;" onclick="clearCooldown('${c.username}')">Clear</button>
+                        </div>
+                    `;
+                });
+
+                document.getElementById('cooldowns-list').innerHTML = html;
+            } catch (e) {
+                showStatus('cooldowns-status', 'Error: ' + e.message, 'error');
+            }
+        }
+
+        async function clearCooldown(username) {
+            try {
+                const res = await fetch('/api/admin/clear-cooldown', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username })
+                });
+                const data = await res.json();
+                showStatus('cooldowns-status', data.message, 'success');
+                loadCooldowns();
+            } catch (e) {
+                showStatus('cooldowns-status', 'Error: ' + e.message, 'error');
+            }
+        }
+
+        async function clearAllCooldowns() {
+            if (!confirm('Clear all cooldowns?')) return;
+            try {
+                const res = await fetch('/api/admin/clear-cooldown', { method: 'POST' });
+                const data = await res.json();
+                showStatus('cooldowns-status', data.message, 'success');
+                loadCooldowns();
+            } catch (e) {
+                showStatus('cooldowns-status', 'Error: ' + e.message, 'error');
+            }
+        }
+
+        // History
+        async function clearHistory() {
+            if (!confirm('Clear ALL spin history? This cannot be undone!')) return;
+            try {
+                const res = await fetch('/api/admin/clear-history', { method: 'POST' });
+                const data = await res.json();
+                showStatus('history-status', data.message, 'success');
+            } catch (e) {
+                showStatus('history-status', 'Error: ' + e.message, 'error');
+            }
+        }
+
+        // Users
+        async function loadUsers() {
+            try {
+                const res = await fetch('/api/admin/users');
+                const data = await res.json();
+
+                if (data.users.length === 0) {
+                    showStatus('users-status', 'No users found', 'info');
+                    document.getElementById('users-list').innerHTML = '';
+                    return;
+                }
+
+                showStatus('users-status', `${data.count} user(s)`, 'success');
+
+                let html = '<table><tr><th>Name</th><th>Added</th><th>Removed</th><th>Cooldown</th></tr>';
+                data.users.forEach(u => {
+                    const cooldownIcon = u.has_cooldown ? '<span style="color:#ff6b6b;">Active</span>' : '-';
+                    html += `<tr>
+                        <td>${u.username}</td>
+                        <td>${u.added}</td>
+                        <td>${u.removed}</td>
+                        <td>${cooldownIcon}</td>
+                    </tr>`;
+                });
+                html += '</table>';
+
+                document.getElementById('users-list').innerHTML = html;
+            } catch (e) {
+                showStatus('users-status', 'Error: ' + e.message, 'error');
+            }
+        }
+
+        // Backups
+        async function loadBackups() {
+            showStatus('backups-status', 'Loading...', 'info');
+            try {
+                const res = await fetch('/api/admin/backups');
+                const data = await res.json();
+
+                showStatus('backups-status', `${data.count} backups`, 'success');
+
+                if (data.backups.length === 0) {
+                    document.getElementById('backups-list').innerHTML = '<p style="color:#888;">No backups found</p>';
+                    return;
+                }
+
+                let html = '<table><tr><th>Filename</th><th>Size</th><th>Date</th></tr>';
+                data.backups.forEach(b => {
+                    html += `<tr class="backup-row" onclick="selectBackup('${b.filename}', this)">
+                        <td>${b.filename}</td>
+                        <td>${formatBytes(b.size_bytes)}</td>
+                        <td>${formatDate(b.modified)}</td>
+                    </tr>`;
+                });
+                html += '</table>';
+
+                document.getElementById('backups-list').innerHTML = html;
+            } catch (e) {
+                showStatus('backups-status', 'Error: ' + e.message, 'error');
+            }
+        }
+
+        async function createBackup() {
+            showStatus('backups-status', 'Creating backup...', 'info');
+            try {
+                const res = await fetch('/api/admin/backup', { method: 'POST' });
+                const data = await res.json();
+                showStatus('backups-status', data.message, 'success');
+                loadBackups();
+            } catch (e) {
+                showStatus('backups-status', 'Error: ' + e.message, 'error');
+            }
+        }
+
+        function selectBackup(filename, row) {
+            document.querySelectorAll('.backup-row').forEach(r => r.classList.remove('selected'));
+            row.classList.add('selected');
+            selectedBackup = filename;
+            const btn = document.getElementById('restore-selected-btn');
+            btn.disabled = false;
+            btn.textContent = `Restore: ${filename.substring(0, 25)}...`;
+        }
+
+        async function restoreLatest() {
+            if (!confirm('Restore from latest backup? This will overwrite current data.')) return;
+            await doRestore('restaurants_latest.json');
+        }
+
+        async function restoreSelected() {
+            if (!selectedBackup) return;
+            if (!confirm(`Restore from ${selectedBackup}?`)) return;
+            await doRestore(selectedBackup);
+        }
+
+        async function doRestore(filename) {
+            showStatus('restore-status', `Restoring ${filename}...`, 'info');
+            try {
+                const res = await fetch('/api/admin/restore', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filename })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    showStatus('restore-status', data.message, 'success');
+                    diagnose();
+                } else {
+                    showStatus('restore-status', 'Error: ' + data.error, 'error');
+                }
+            } catch (e) {
+                showStatus('restore-status', 'Error: ' + e.message, 'error');
+            }
+        }
+
+        // Load everything on page load
+        window.onload = function() {
+            loadRedisInfo();
+            diagnose();
+            loadCooldowns();
+            loadBackups();
+        };
+    </script>
+</body>
+</html>

@@ -102,4 +102,10 @@ def create_app():
         except:
             return {"status": "unhealthy", "redis": "disconnected"}, 503
 
+    # Hidden admin page (no link from main UI)
+    @app.route('/admin')
+    def admin():
+        """Hidden admin page for backup/restore management"""
+        return render_template('admin.html')
+
     return app

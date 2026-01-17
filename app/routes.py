@@ -593,3 +593,357 @@ def restore_backup():
         return jsonify(create_error_response(
             f"Failed to restore backup: {str(e)}"
         )), 500
+
+
+# =============================================================================
+# Admin Endpoints (no authentication required)
+# =============================================================================
+
+@api.route('/admin/backups', methods=['GET'])
+def admin_list_backups():
+    """List all available backup files"""
+    import os
+    from app.config import Config
+
+    backup_dir = Config.BACKUP_DIR
+    backups = []
+
+    if os.path.exists(backup_dir):
+        for filename in sorted(os.listdir(backup_dir), reverse=True):
+            if filename.endswith('.json'):
+                filepath = os.path.join(backup_dir, filename)
+                stat = os.stat(filepath)
+                backups.append({
+                    "filename": filename,
+                    "path": filepath,
+                    "size_bytes": stat.st_size,
+                    "modified": stat.st_mtime
+                })
+
+    return jsonify(create_success_response({
+        "backup_dir": backup_dir,
+        "backups": backups,
+        "count": len(backups)
+    }))
+
+
+@api.route('/admin/restore', methods=['POST'])
+def admin_restore():
+    """
+    Restore from a backup file (no auth required)
+
+    POST /api/admin/restore
+    Body: {"filename": "restaurants_latest.json"} or empty for latest
+    """
+    import os
+    from app.config import Config
+
+    data = request.get_json() or {}
+    filename = data.get('filename', 'restaurants_latest.json')
+
+    # Build full path
+    backup_dir = Config.BACKUP_DIR
+    backup_file = os.path.join(backup_dir, filename)
+
+    logger.info(f"ADMIN_RESTORE: Attempting to restore from {backup_file}")
+
+    try:
+        model = get_restaurant_model()
+        result = model.restore_from_file(backup_file)
+
+        logger.info(f"ADMIN_RESTORE: Successfully restored {result['restaurants_restored']} restaurants")
+
+        return jsonify(create_success_response({
+            "result": result,
+            "message": f"Restored {result['restaurants_restored']} restaurants and {result['categories_restored']} categories",
+            "backup_file": backup_file
+        }))
+
+    except FileNotFoundError:
+        logger.error(f"ADMIN_RESTORE: Backup file not found: {backup_file}")
+        return jsonify(create_error_response(f"Backup file not found: {filename}")), 404
+    except Exception as e:
+        logger.exception(f"ADMIN_RESTORE: Failed to restore: {e}")
+        return jsonify(create_error_response(f"Failed to restore backup: {str(e)}")), 500
+
+
+@api.route('/admin/diagnose', methods=['GET'])
+def admin_diagnose():
+    """
+    Diagnose Redis data integrity
+    Shows indexes vs actual data, orphaned entries, etc.
+    """
+    model = get_restaurant_model()
+    redis = model.redis
+
+    # Get all IDs from index
+    index_ids = redis.smembers("restaurants:index")
+    index_ids = [i.decode() if isinstance(i, bytes) else i for i in index_ids]
+
+    # Check each ID
+    has_data = []
+    missing_data = []
+
+    for rid in sorted(index_ids, key=lambda x: int(x) if x.isdigit() else 0):
+        data = redis.hgetall(f"restaurants:{rid}")
+        if data:
+            name = data.get(b'name', data.get('name', b'Unknown'))
+            if isinstance(name, bytes):
+                name = name.decode()
+            has_data.append({"id": rid, "name": name})
+        else:
+            missing_data.append(rid)
+
+    return jsonify(create_success_response({
+        "index_count": len(index_ids),
+        "with_data": len(has_data),
+        "missing_data": len(missing_data),
+        "restaurants": has_data,
+        "orphaned_ids": missing_data
+    }))
+
+
+@api.route('/admin/fix-orphans', methods=['POST'])
+def admin_fix_orphans():
+    """
+    Remove orphaned IDs from indexes (IDs that have no data)
+    """
+    model = get_restaurant_model()
+    redis = model.redis
+
+    # Get all IDs from index
+    index_ids = redis.smembers("restaurants:index")
+    index_ids = [i.decode() if isinstance(i, bytes) else i for i in index_ids]
+
+    fixed = []
+
+    for rid in index_ids:
+        data = redis.hgetall(f"restaurants:{rid}")
+        if not data:
+            # Remove from main index
+            redis.srem("restaurants:index", rid)
+
+            # Remove from all category indexes
+            for key in redis.keys("restaurants:by_category:*"):
+                if isinstance(key, bytes):
+                    key = key.decode()
+                redis.srem(key, rid)
+
+            # Remove from all distance indexes
+            for key in redis.keys("restaurants:by_distance:*"):
+                if isinstance(key, bytes):
+                    key = key.decode()
+                redis.srem(key, rid)
+
+            fixed.append(rid)
+            logger.info(f"ADMIN_FIX: Removed orphaned ID {rid} from indexes")
+
+    return jsonify(create_success_response({
+        "fixed_count": len(fixed),
+        "fixed_ids": fixed,
+        "message": f"Removed {len(fixed)} orphaned IDs from indexes"
+    }))
+
+
+@api.route('/admin/clear-history', methods=['POST'])
+def admin_clear_history():
+    """Clear all spin history"""
+    model = get_restaurant_model()
+    redis = model.redis
+
+    # Get count before clearing
+    count = redis.llen("spin_history")
+
+    # Clear the history
+    redis.delete("spin_history")
+
+    logger.info(f"ADMIN: Cleared {count} history entries")
+
+    return jsonify(create_success_response({
+        "cleared_count": count,
+        "message": f"Cleared {count} history entries"
+    }))
+
+
+@api.route('/admin/cooldowns', methods=['GET'])
+def admin_list_cooldowns():
+    """List all active cooldowns"""
+    model = get_restaurant_model()
+    redis = model.redis
+
+    # Find all cooldown keys
+    cooldown_keys = redis.keys("user:*:last_spin")
+    cooldowns = []
+
+    for key in cooldown_keys:
+        if isinstance(key, bytes):
+            key = key.decode()
+
+        # Extract username from key
+        username = key.replace("user:", "").replace(":last_spin", "")
+
+        # Get the timestamp
+        last_spin = redis.get(key)
+        if last_spin:
+            if isinstance(last_spin, bytes):
+                last_spin = last_spin.decode()
+
+            from datetime import datetime
+            last_spin_time = float(last_spin)
+            time_since = datetime.utcnow().timestamp() - last_spin_time
+            from app.config import Config
+            remaining = max(0, Config.SPIN_TIMEOUT_SECONDS - time_since)
+
+            cooldowns.append({
+                "username": username,
+                "last_spin": datetime.fromtimestamp(last_spin_time).isoformat(),
+                "seconds_remaining": int(remaining),
+                "expired": remaining <= 0
+            })
+
+    return jsonify(create_success_response({
+        "cooldowns": cooldowns,
+        "count": len(cooldowns)
+    }))
+
+
+@api.route('/admin/clear-cooldown', methods=['POST'])
+def admin_clear_cooldown():
+    """Clear cooldown for a specific user or all users"""
+    model = get_restaurant_model()
+    redis = model.redis
+
+    data = request.get_json() or {}
+    username = data.get('username')
+
+    if username:
+        # Clear specific user
+        key = f"user:{username}:last_spin"
+        deleted = redis.delete(key)
+        logger.info(f"ADMIN: Cleared cooldown for user '{username}'")
+        return jsonify(create_success_response({
+            "cleared": deleted > 0,
+            "message": f"Cleared cooldown for {username}" if deleted else f"No cooldown found for {username}"
+        }))
+    else:
+        # Clear all cooldowns
+        cooldown_keys = redis.keys("user:*:last_spin")
+        count = 0
+        for key in cooldown_keys:
+            redis.delete(key)
+            count += 1
+
+        logger.info(f"ADMIN: Cleared {count} cooldowns")
+        return jsonify(create_success_response({
+            "cleared_count": count,
+            "message": f"Cleared {count} cooldowns"
+        }))
+
+
+@api.route('/admin/backup', methods=['POST'])
+def admin_create_backup():
+    """Create a manual backup"""
+    try:
+        model = get_restaurant_model()
+        backup_file = model.backup_to_file()
+
+        logger.info(f"ADMIN: Created backup at {backup_file}")
+
+        return jsonify(create_success_response({
+            "backup_file": backup_file,
+            "message": "Backup created successfully"
+        }))
+    except Exception as e:
+        logger.exception(f"ADMIN: Failed to create backup: {e}")
+        return jsonify(create_error_response(f"Failed to create backup: {str(e)}")), 500
+
+
+@api.route('/admin/users', methods=['GET'])
+def admin_list_users():
+    """List all users who have interacted with the system"""
+    model = get_restaurant_model()
+    redis = model.redis
+
+    users = {}
+
+    # Find users from various keys
+    # Check cooldown keys
+    for key in redis.keys("user:*:last_spin"):
+        if isinstance(key, bytes):
+            key = key.decode()
+        username = key.replace("user:", "").replace(":last_spin", "")
+        if username not in users:
+            users[username] = {"username": username, "added": 0, "removed": 0, "has_cooldown": False}
+        users[username]["has_cooldown"] = True
+
+    # Check added keys
+    for key in redis.keys("user:*:added"):
+        if isinstance(key, bytes):
+            key = key.decode()
+        username = key.replace("user:", "").replace(":added", "")
+        if username not in users:
+            users[username] = {"username": username, "added": 0, "removed": 0, "has_cooldown": False}
+        users[username]["added"] = redis.scard(key)
+
+    # Check removed keys
+    for key in redis.keys("user:*:removed"):
+        if isinstance(key, bytes):
+            key = key.decode()
+        username = key.replace("user:", "").replace(":removed", "")
+        if username not in users:
+            users[username] = {"username": username, "added": 0, "removed": 0, "has_cooldown": False}
+        users[username]["removed"] = redis.scard(key)
+
+    # Also check spin history for usernames
+    history = redis.lrange("spin_history", 0, -1)
+    for entry_bytes in history:
+        if isinstance(entry_bytes, bytes):
+            entry_bytes = entry_bytes.decode()
+        try:
+            import json
+            entry = json.loads(entry_bytes)
+            username = entry.get("username")
+            if username and username not in users:
+                users[username] = {"username": username, "added": 0, "removed": 0, "has_cooldown": False}
+        except:
+            pass
+
+    user_list = sorted(users.values(), key=lambda x: x["username"].lower())
+
+    return jsonify(create_success_response({
+        "users": user_list,
+        "count": len(user_list)
+    }))
+
+
+@api.route('/admin/redis-info', methods=['GET'])
+def admin_redis_info():
+    """Get Redis connection info and stats"""
+    from app.config import Config
+    model = get_restaurant_model()
+    redis = model.redis
+
+    try:
+        redis.ping()
+        connected = True
+
+        # Get some basic stats
+        info = redis.info('memory')
+        db_size = redis.dbsize()
+
+        return jsonify(create_success_response({
+            "connected": True,
+            "host": Config.REDIS_HOST,
+            "port": Config.REDIS_PORT,
+            "db": Config.REDIS_DB,
+            "db_size": db_size,
+            "used_memory": info.get('used_memory_human', 'Unknown'),
+            "used_memory_peak": info.get('used_memory_peak_human', 'Unknown')
+        }))
+    except Exception as e:
+        return jsonify(create_success_response({
+            "connected": False,
+            "host": Config.REDIS_HOST,
+            "port": Config.REDIS_PORT,
+            "error": str(e)
+        }))
